@@ -1,6 +1,6 @@
 package main
 
-import "project-gruppe_1/network_driver/bcast"
+import "elevator_project/network_driver/bcast"
 import (
 	//"/network_driver/bcast"
 	//"./network_driver/conn"
@@ -8,15 +8,16 @@ import (
 	//"./network_driver/peers"
 	//"./network_core"
 	//"./order_logic"
-	"flag"
+	// "flag"
 	"fmt"
-	"os"
-	"time"
+	// "os"
+	// "time"
 )
 
 func main() {
-
-
+	transmitChan := make(chan int)
+	go bcast.Transmitter(123456, transmitChan)
+	fmt.Println("hej")
 }
 
 // func main() {

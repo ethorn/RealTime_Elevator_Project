@@ -1,9 +1,10 @@
-package main
+package order_logic
+
 import "time"
 import "sync"
 import "net"
 import "fmt"
-
+import "./order_logic/elevio"
 
 
 const _pollRate = 20 * time.Millisecond
@@ -232,13 +233,13 @@ func toBool(a byte) bool {
 
 
 //-------------------------------------------- Todo ------------------------------------------------------
-	// 1) Function that creates a checksum
-	// 2) Function that creates a messageid
+	// 1) First fix file-structure and 
 	// 3) Function that unpacks elevator state, pulls own state w/updated queue 
 	// 4) Functionality for single use elevator 
 	// 5) Handling cab calls 
 	// 			Cab call -> send to master for assignment -> master assigns queue with cab calls in mind ->elevator receives new queue
 	// 6) Unpack and pack JSON for algo
+	// 7) Poll elevatorsstates when new orders are coming in
 
 
 

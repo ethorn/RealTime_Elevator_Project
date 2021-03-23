@@ -4,7 +4,7 @@ import "time"
 import "sync"
 import "net"
 import "fmt"
-import "../elevio"
+import "elevator_project/elevio"
 
 //-------------------------------------------- Todo ------------------------------------------------------
 	// 1) Move "Network and message support to network-module"

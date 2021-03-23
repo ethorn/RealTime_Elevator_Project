@@ -1,8 +1,10 @@
 package communication
 
 import (
-	"elevator_project/elevio"
 	"elevator_project/elevator"
+	"elevator_project/elevio"
+	"fmt"
+	"reflect"
 	"time"
 )
 
@@ -10,41 +12,46 @@ import (
 // TODO: message id
 
 type AckMessage struct {
-	Id int
+	Id int64
 }
 
-// TODO: checksum
 type ButtonMessage struct {
+	Id int64
 	Button elevio.ButtonEvent
-	Id int
 }
 
-func Acknowledge() {
-	
-}
-
-// TODO make an ....interface{} thing to accept all types of message channels
-// TODO: cancel after X seconds?
-func AcknowledgeHallMsg(msg ButtonMessage) {
+// General acknowledge function
+// 	- the message struct must have id as field 0 (first field)
+func AcknowledgeMsg(msg interface{}, channel interface{}) {
 	counter := 0
+
+	m := reflect.ValueOf(msg)
+	msgId := m.Field(0).Int()
+
 	for {
 		if counter > 150 { // Timeout at 3 sec
 			break
 		}
 		select {
-		case a := <- AckRx:
-			if a.Id == msg.Id {
+		case ack := <- AckRx:
+			if ack.Id == msgId {
+				fmt.Println("acknowledging true")
 				return
 			} else {
-				AckTx <- a
+				AckTx <- ack
 			}
 		default:
 			counter++
 			time.Sleep(20*time.Millisecond)
 		}
 	}
-	HallTx<-msg // Resend after timeout
-	go AcknowledgeHallMsg(msg) // look for new acknowledge
+	// Send message again
+	fmt.Println("no acknowledge, sending message again")
+	ch := reflect.ValueOf(channel)
+	Msg := reflect.ValueOf(msg)
+	ch.Send(Msg)
+	// and ask for new acknowledge
+	AcknowledgeMsg(msg, channel)
 }
 
 func SendStateUpdate(e elevator.Elevator) {
@@ -52,8 +59,8 @@ func SendStateUpdate(e elevator.Elevator) {
 }
 
 func SendNewHallRequest(btn elevio.ButtonEvent) {
-	msg := ButtonMessage{Button: btn, Id:1}
+	msg := ButtonMessage{Id:1, Button: btn}
 	HallTx<-msg
-	go AcknowledgeHallMsg(msg)
+	go AcknowledgeMsg(msg, HallTx)
 }
 

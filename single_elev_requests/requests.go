@@ -1,9 +1,9 @@
 package single_elev_requests
 
 import (
-	"elevator_project/elevio"
-	"elevator_project/elevator"
 	"elevator_project/config"
+	"elevator_project/elevator"
+	"elevator_project/elevio"
 )
 
 func ShouldStop(e elevator.Elevator) bool {
@@ -21,7 +21,7 @@ func ShouldStop(e elevator.Elevator) bool {
 
 func ChooseDirection(e elevator.Elevator) elevio.MotorDirection {
 	// Need to continue in the direction it was going, if there are any orders in that direction left
-	
+
 	switch e.Dir {
 	case elevio.MD_Up:
 		if Requests_above(e) {
@@ -53,7 +53,7 @@ func ChooseDirection(e elevator.Elevator) elevio.MotorDirection {
 }
 
 func Requests_above(e elevator.Elevator) bool {
-	for f := e.Floor+1; f < config.N_FLOORS; f++ {
+	for f := e.Floor + 1; f < config.N_FLOORS; f++ {
 		for btn := 0; btn < config.N_BUTTONS; btn++ {
 			if e.Requests[f][btn] {
 				return true

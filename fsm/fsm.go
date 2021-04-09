@@ -1,47 +1,56 @@
 package fsm
 
 import (
-	"elevator_project/elevio"
-	"fmt"
 	"elevator_project/communication"
 	"elevator_project/elevator"
+	"elevator_project/elevio"
 	"elevator_project/single_elev_requests"
+	"fmt"
 	"time"
 )
+
 // IMPORTANT: ALL STATE CHANGES HAPPEN IN THIS FILE
 
 var d elevio.MotorDirection
 var ElevState elevator.Elevator
 var timerEndTime time.Time
 var timerActive bool
+var CurrentElevStates []elevator.Elevator
 
 func init() {
-    initElevator()
+	initElevator()
+	initCurrentElevators()
 }
 
 func initElevator() {
 	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: -1, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
 }
 
+func initCurrentElevators() {
+	Elev1 := elevator.Elevator{Id: "null", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+	Elev2 := elevator.Elevator{Id: "one", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+	CurrentElevStates = []elevator.Elevator{Elev1, Elev2}
+}
 func onInitBetweenFloors() {
 	// outputDevice.motorDirection(D_Down);
-    // elevator.dirn = D_Down;
-    // elevator.behaviour = EB_Moving;
+	// elevator.dirn = D_Down;
+	// elevator.behaviour = EB_Moving;
 }
 
 func HandleNewElevState(s elevator.Elevator) {
+
 	if ElevState.Id == s.Id {
 		ElevState = s
 		// stuff, TODO: check this func
 		ElevState.Dir = single_elev_requests.ChooseDirection(ElevState)
 		elevio.SetMotorDirection(ElevState.Dir)
 		if ElevState.Dir != elevio.MD_Stop {
-			ElevState.Behaviour = elevator.EB_Moving;
+			ElevState.Behaviour = elevator.EB_Moving
 		} else {
-			ElevState.Behaviour = elevator.EB_Idle;
+			ElevState.Behaviour = elevator.EB_Idle
 		}
 	} else {
-		communication.StatesUpdateTx<-s
+		//communication.StatesUpdateTx <- s
 	}
 }
 
@@ -80,16 +89,17 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 				elevio.SetButtonLamp(btn.Button, btn.Floor, true)
 				ElevState.Dir = single_elev_requests.ChooseDirection(ElevState)
 				elevio.SetMotorDirection(ElevState.Dir)
-				ElevState.Behaviour = elevator.EB_Moving;
+				ElevState.Behaviour = elevator.EB_Moving
 				communication.SendStateUpdate(ElevState)
 			} else { // Hall request
-				if !ElevState.Master { // send to master
-					communication.SendNewHallRequest(btn)
-				} else if ElevState.Master {
-					// TODO
-					// check connection to others in some way
-					// then send to new hall request (or some function that does the same as new hall request receiver)
-				}
+				communication.SendNewHallRequest(btn)
+				//if !ElevState.Master { // send to master
+				//	communication.SendNewHallRequest(btn)
+				//} //
+				//else if ElevState.Master {
+				// check connection to others in some way
+				// then send to new hall request (or some function that does the same as new hall request receiver)
+				//}
 			}
 		}
 	case elevator.EB_DoorOpen:
@@ -110,7 +120,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 				}
 			}
 		}
-		
+
 	case elevator.EB_Moving:
 		if btn.Button == elevio.BT_Cab {
 			ElevState.Requests[btn.Floor][btn.Button] = true
@@ -151,11 +161,11 @@ func HandleNewFloor(floor int, numFloors int) {
 					// Stop
 					ElevState.Dir = elevio.MD_Stop
 					elevio.SetMotorDirection(ElevState.Dir)
-					
+
 					elevio.SetDoorOpenLamp(true)
 					timer_start()
-					ElevState.Behaviour = elevator.EB_DoorOpen;
-					
+					ElevState.Behaviour = elevator.EB_DoorOpen
+
 					if i == elevio.BT_HallUp {
 						fmt.Println("entering: Hall up please")
 					} else if i == elevio.BT_HallDown {
@@ -174,7 +184,7 @@ func HandleNewFloor(floor int, numFloors int) {
 
 func HandleChangeInObstacle(obstruction bool) {
 	// TODO
-		// Should keep door open if obstructed (renew timer?)
+	// Should keep door open if obstructed (renew timer?)
 	fmt.Printf("%+v\n", obstruction)
 	// if obstruction {
 	// 	elevio.SetMotorDirection(elevio.MD_Stop)

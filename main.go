@@ -1,23 +1,23 @@
 package main
 
 import (
+	"elevator_project/communication"
 	"elevator_project/elevio"
+	"elevator_project/fsm"
 	"elevator_project/network/bcast"
 	"elevator_project/network/localip"
 	"elevator_project/network/peers"
+	"elevator_project/order_logic"
 	"flag"
 	"fmt"
-	"elevator_project/fsm"
-	"time"
 	"os"
-	"elevator_project/communication"
-	"elevator_project/elevator"
+	"time"
 )
 
 func main() {
 	//////////////////////////////////////// Getting flags
 	var port string
-	flag.StringVar(&port, "port", "15657", "port for elevator-server")
+	flag.StringVar(&port, "port", "15601", "port for elevator-server")
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
@@ -26,18 +26,16 @@ func main() {
 	fmt.Println("Starting..")
 	fsm.ElevState.Id = id
 	//TODO
-		// Check if we are initializing between floors
+	// Check if we are initializing between floors
 	// if elevio.getFloor() == -1 {
 
 	// }
-		// if so, fsm.onInitBetweenFloors
-	
-	
+	// if so, fsm.onInitBetweenFloors
+
 	////////////////////////////////////// Init driver
 	numFloors := 4
-	fmt.Println("localhost:"+port)
-    elevio.Init("localhost:"+port, numFloors)
-	
+	fmt.Println("localhost:" + port)
+	elevio.Init("localhost:"+port, numFloors)
 
 	//////////////////////////////////// Init UDP broadcast channels
 	if id == "" {
@@ -48,7 +46,7 @@ func main() {
 		}
 		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
 	}
-	
+
 	// We make a channel for receiving updates on the id's of the peers that are alive on the network
 	peerUpdateCh := communication.PeerUpdateCh
 	// We can disable/enable the transmitter after it has been started. This could be used to signal that we are somehow "unavailable".
@@ -58,9 +56,9 @@ func main() {
 
 	// make channels for sending and receiving our custom data types
 	stateMsgTx := communication.StateMsgTx
-	stateMsgRx := communication.StateMsgRx // TODO: this should be a struct with all elevators states
+	stateMsgRx := communication.StateMsgRx  // TODO: this should be a struct with all elevators states
 	go bcast.Transmitter(46569, stateMsgTx) // These functions can take any number of channels!
-	go bcast.Receiver(46569, stateMsgRx) // It is also possible to start multiple transmitters/receivers on the same port.
+	go bcast.Receiver(46569, stateMsgRx)    // It is also possible to start multiple transmitters/receivers on the same port.
 
 	// Make channels for sending and receiving states which should update the slave states
 	statesUpdateTx := communication.StatesUpdateTx
@@ -87,33 +85,33 @@ func main() {
 	go bcast.Receiver(58989, masterRx)
 
 	////////////////////////////////// initialize I/O channels polling
-    drv_buttons := make(chan elevio.ButtonEvent)	
-    drv_floors  := make(chan int)
-    drv_obstr   := make(chan bool)
-    drv_stop    := make(chan bool)
+	drv_buttons := make(chan elevio.ButtonEvent)
+	drv_floors := make(chan int)
+	drv_obstr := make(chan bool)
+	drv_stop := make(chan bool)
 	doorTimeOutAlert := make(chan bool) // TODO
-    go elevio.PollButtons(drv_buttons) 
-    go elevio.PollFloorSensor(drv_floors)
-    go elevio.PollObstructionSwitch(drv_obstr)
-    go elevio.PollStopButton(drv_stop)
+	go elevio.PollButtons(drv_buttons)
+	go elevio.PollFloorSensor(drv_floors)
+	go elevio.PollObstructionSwitch(drv_obstr)
+	go elevio.PollStopButton(drv_stop)
 	go fsm.PollTimer(doorTimeOutAlert)
 
 	// How to implement "single elevator mode?"
-		// That is the natural way of operating
-		// The difference becomes when a master sends new orders
-		// and when new orders are sent to others
+	// That is the natural way of operating
+	// The difference becomes when a master sends new orders
+	// and when new orders are sent to others
 	// How should elevators work while they have their own requests list?
-		// * internal chooseDirection algorithm
-		// * new cab call is added to internal requests state (and handled by internal chooseDir algo)
-			// * should serve cab calls when elevator is disconnected
-			// * This new cab call gets sent to others through updated state 
-		// * new hall call is sent to master (with acks)
-			// if the master got the hall request, he checks if he is connected
-			// * Master then takes the hall request -> blackbox -> generates new requests for everyone. -> Send them
-				// Master always have the latest states of everyone, because they always send their state
-			// * should not serve hall requests when elev is disconnected
-		// * as the internal elevator gets a new state, it sends the new state to the master, 
-			// which sends back an updated requests list (which includes cab requests)
+	// * internal chooseDirection algorithm
+	// * new cab call is added to internal requests state (and handled by internal chooseDir algo)
+	// * should serve cab calls when elevator is disconnected
+	// * This new cab call gets sent to others through updated state
+	// * new hall call is sent to master (with acks)
+	// if the master got the hall request, he checks if he is connected
+	// * Master then takes the hall request -> blackbox -> generates new requests for everyone. -> Send them
+	// Master always have the latest states of everyone, because they always send their state
+	// * should not serve hall requests when elev is disconnected
+	// * as the internal elevator gets a new state, it sends the new state to the master,
+	// which sends back an updated requests list (which includes cab requests)
 	// How to complete requests?
 
 	// Use same handle functions, just use an if statement to see if the elevator is master or not
@@ -125,33 +123,33 @@ func main() {
 			break
 		}
 		select {
-		case a := <- drv_buttons:
-		fsm.HandleButtonEvent(a, doorTimeOutAlert)
-		case b := <- drv_floors:
-		fsm.HandleNewFloor(b, numFloors)
-		case c := <- drv_obstr:
-		fsm.HandleChangeInObstacle(c)
-		case d := <- drv_stop:
-		fsm.HandleChangeInStopBtn(d, numFloors)
-		case e := <- doorTimeOutAlert:
-		fsm.HandleDoorTimeOut(e)
-		fsm.Timer_stop()
-		case p := <- peerUpdateCh: 
+		case a := <-drv_buttons:
+			fsm.HandleButtonEvent(a, doorTimeOutAlert)
+		case b := <-drv_floors:
+			fsm.HandleNewFloor(b, numFloors)
+		case c := <-drv_obstr:
+			fsm.HandleChangeInObstacle(c)
+		case d := <-drv_stop:
+			fsm.HandleChangeInStopBtn(d, numFloors)
+		case e := <-doorTimeOutAlert:
+			fsm.HandleDoorTimeOut(e)
+			fsm.Timer_stop()
+		case p := <-peerUpdateCh:
 			// TODO
-				// Set a peers variable with ID's of everyone connected
+			// Set a peers variable with ID's of everyone connected
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
-		case <- masterRx:
+		case <-masterRx:
 			masterCounter = 0
 			// fmt.Println(m)
-		case s := <- statesUpdateRx:
+		case s := <-statesUpdateRx:
 			fsm.HandleNewElevState(s) // TODO
 		default:
 			masterCounter++
 			// fmt.Println(masterCounter)
-			time.Sleep(20*time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}
 	}
 
@@ -160,44 +158,51 @@ func main() {
 	for {
 		select {
 		// Check if master in each handler function
-		case a := <- drv_buttons:
-		fsm.HandleButtonEvent(a, doorTimeOutAlert)
-		case b := <- drv_floors:
-		fsm.HandleNewFloor(b, numFloors)
-		case c := <- drv_obstr:
-		fsm.HandleChangeInObstacle(c)
-		case d := <- drv_stop:
-		fsm.HandleChangeInStopBtn(d, numFloors)
-		case e := <- doorTimeOutAlert:
-		fsm.HandleDoorTimeOut(e)
-		fsm.Timer_stop()
-		case p := <- peerUpdateCh: 
+		case a := <-drv_buttons:
+			fsm.HandleButtonEvent(a, doorTimeOutAlert)
+		case b := <-drv_floors:
+			fsm.HandleNewFloor(b, numFloors)
+		case c := <-drv_obstr:
+			fsm.HandleChangeInObstacle(c)
+		case d := <-drv_stop:
+			fsm.HandleChangeInStopBtn(d, numFloors)
+		case e := <-doorTimeOutAlert:
+			fsm.HandleDoorTimeOut(e)
+			fsm.Timer_stop()
+		case p := <-peerUpdateCh:
 			// TODO
-				// Set a peers variable with ID's of everyone connected
+			// Set a peers variable with ID's of everyone connected
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
-		case h := <- hallRx:
+		case h := <-hallRx:
 			// acknowledge
-			ackMsg := communication.AckMessage{Id:h.Id}
-			ackTx<-ackMsg
-			// send to black box
-				// 	TODO
-				states := make([]elevator.Elevator, 3) // todo, from black box
-			// For all connected peers
-			for i:=0; i < 3; i++ {
-				state := states[i]
-				statesUpdateTx<-state
+			ackMsg := communication.AckMessage{Id: h.Id}
+			ackTx <- ackMsg
+			index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button)
+			fmt.Print(index)
+			fsm.CurrentElevStates[index].Requests[h.Button.Floor][h.Button.Button] = true
+
+			// For all connected peers - Should probably be mutable?
+			for i := 0; i < 2; i++ {
+				state := fsm.CurrentElevStates[i]
+				statesUpdateTx <- state
 			}
-			// TODO set lamp here?
-		case s := <- stateMsgRx: // TODO handle
-			fmt.Println("recieved state:", s)
+			elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
+
+		case s := <-stateMsgRx: // TODO handle
+			for i, elev := range fsm.CurrentElevStates {
+				if elev.Id == s.Id {
+					fsm.CurrentElevStates[i] = s
+					fmt.Println("recieved state:", s)
+				}
+			}
 		default:
 			// fmt.Println("sending message")
 			msg := "Alive"
 			masterTx <- msg
-			time.Sleep(20*time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}
 	}
 }

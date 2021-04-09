@@ -18,7 +18,7 @@ func Timer_stop() {
 
 func timer_timedOut() bool {
 	t := time.Now()
-	duration := float64(config.DOOR_DURATION)
+	duration := float64(config.DOOR_OPEN_TIME)
 	return t.Sub(timerEndTime).Seconds() > duration
 }
 

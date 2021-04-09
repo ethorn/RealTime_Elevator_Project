@@ -16,7 +16,7 @@ type AckMessage struct {
 }
 
 type ButtonMessage struct {
-	Id int64
+	Id     int64
 	Button elevio.ButtonEvent
 }
 
@@ -33,7 +33,7 @@ func AcknowledgeMsg(msg interface{}, channel interface{}) {
 			break
 		}
 		select {
-		case ack := <- AckRx:
+		case ack := <-AckRx:
 			if ack.Id == msgId {
 				fmt.Println("acknowledging true")
 				return
@@ -42,7 +42,7 @@ func AcknowledgeMsg(msg interface{}, channel interface{}) {
 			}
 		default:
 			counter++
-			time.Sleep(20*time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		}
 	}
 	// Send message again
@@ -55,12 +55,11 @@ func AcknowledgeMsg(msg interface{}, channel interface{}) {
 }
 
 func SendStateUpdate(e elevator.Elevator) {
-	StateMsgTx<-e
+	StateMsgTx <- e
 }
 
 func SendNewHallRequest(btn elevio.ButtonEvent) {
-	msg := ButtonMessage{Id:1, Button: btn}
-	HallTx<-msg
+	msg := ButtonMessage{Id: 1, Button: btn}
+	HallTx <- msg
 	go AcknowledgeMsg(msg, HallTx)
 }
-

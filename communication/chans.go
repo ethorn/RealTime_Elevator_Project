@@ -1,16 +1,16 @@
 package communication
 
 import (
-	"elevator_project/network/peers"
 	"elevator_project/elevator"
+	"elevator_project/network/peers"
 )
 
-var PeerUpdateCh chan peers.PeerUpdate = make(chan peers.PeerUpdate) 
-var PeerTxEnable chan bool = make(chan bool) 
+var PeerUpdateCh chan peers.PeerUpdate = make(chan peers.PeerUpdate)
+var PeerTxEnable chan bool = make(chan bool)
 
 // make channels for sending and receiving our custom data types
-var StateMsgTx chan elevator.Elevator= make(chan elevator.Elevator)
-var StateMsgRx chan elevator.Elevator= make(chan elevator.Elevator)
+var StateMsgTx chan elevator.Elevator = make(chan elevator.Elevator)
+var StateMsgRx chan elevator.Elevator = make(chan elevator.Elevator)
 
 // Make channels for sending and receiving states which should update the slave states
 var StatesUpdateTx chan elevator.Elevator = make(chan elevator.Elevator)

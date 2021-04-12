@@ -60,7 +60,7 @@ func HandleDoorTimeOut(e bool) {
 	case elevator.EB_DoorOpen:
 		ElevState.Dir = single_elev_requests.ChooseDirection(ElevState)
 		elevio.SetDoorOpenLamp(false)
-		fmt.Println("closing door")
+		fmt.Println("Door closed.")
 		elevio.SetMotorDirection(ElevState.Dir)
 
 		if ElevState.Dir == elevio.MD_Stop {
@@ -81,6 +81,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 		if ElevState.Floor == btn.Floor {
 			elevio.SetDoorOpenLamp(true)
 			timer_start()
+			fmt.Println("Opening door")
 			ElevState.Behaviour = elevator.EB_DoorOpen
 			communication.SendStateUpdate(ElevState) // Hvilke state updates trenger master?
 		} else {
@@ -105,6 +106,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 	case elevator.EB_DoorOpen:
 		if ElevState.Floor == btn.Floor {
 			timer_start()
+			fmt.Println("Extending door opening timer")
 		} else {
 			if btn.Button == elevio.BT_Cab {
 				ElevState.Requests[btn.Floor][btn.Button] = true
@@ -164,6 +166,7 @@ func HandleNewFloor(floor int, numFloors int) {
 
 					elevio.SetDoorOpenLamp(true)
 					timer_start()
+					fmt.Println("Opening door")
 					ElevState.Behaviour = elevator.EB_DoorOpen
 
 					if i == elevio.BT_HallUp {
@@ -182,16 +185,16 @@ func HandleNewFloor(floor int, numFloors int) {
 	}
 }
 
-func HandleChangeInObstacle(obstruction bool) {
-	// TODO
-	// Should keep door open if obstructed (renew timer?)
+func HandleChangeInObstruction(obstruction bool) {
 	fmt.Printf("%+v\n", obstruction)
-	// if obstruction {
-	// 	elevio.SetMotorDirection(elevio.MD_Stop)
-	// 	timer_start()
-	// } else {
-	// 	elevio.SetMotorDirection(d)
-	// }
+	if obstruction {
+		elevio.SetMotorDirection(elevio.MD_Stop)
+		extend_timer_on_obstruction()
+	} else {
+		elevio.SetMotorDirection(d)
+		timer_start()
+		fmt.Println("Obstruction removed, closing door soon.")
+	}
 }
 
 func HandleChangeInStopBtn(d bool, numFloors int) {

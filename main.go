@@ -128,7 +128,7 @@ func main() {
 		case b := <-drv_floors:
 			fsm.HandleNewFloor(b, numFloors)
 		case c := <-drv_obstr:
-			fsm.HandleChangeInObstacle(c)
+			fsm.HandleChangeInObstruction(c)
 		case d := <-drv_stop:
 			fsm.HandleChangeInStopBtn(d, numFloors)
 		case e := <-doorTimeOutAlert:
@@ -163,7 +163,7 @@ func main() {
 		case b := <-drv_floors:
 			fsm.HandleNewFloor(b, numFloors)
 		case c := <-drv_obstr:
-			fsm.HandleChangeInObstacle(c)
+			fsm.HandleChangeInObstruction(c)
 		case d := <-drv_stop:
 			fsm.HandleChangeInStopBtn(d, numFloors)
 		case e := <-doorTimeOutAlert:

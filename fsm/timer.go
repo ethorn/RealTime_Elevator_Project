@@ -7,9 +7,8 @@ import (
 )
 
 func timer_start() { // or use golang time timer
-	timerEndTime = time.Now().Add(time.Second*3)
+	timerEndTime = time.Now().Add(time.Second*2)
 	timerActive = true
-	fmt.Println("opening door")
 }
 
 func Timer_stop() {
@@ -20,6 +19,12 @@ func timer_timedOut() bool {
 	t := time.Now()
 	duration := float64(config.DOOR_OPEN_TIME)
 	return t.Sub(timerEndTime).Seconds() > duration
+}
+
+func extend_timer_on_obstruction() {
+	timerEndTime = time.Now().Add(time.Second*99999)
+	timerActive = true
+	fmt.Println("There is an obstruction, keeping the doop open until obstruction is removed.")
 }
 
 func PollTimer(doorTimeOutAlert chan<- bool) {

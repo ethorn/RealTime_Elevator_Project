@@ -17,7 +17,9 @@ import (
 func main() {
 	//////////////////////////////////////// Getting flags
 	var port string
-	flag.StringVar(&port, "port", "15601", "port for elevator-server")
+
+	flag.StringVar(&port, "port", "15600", "port for elevator-server")
+
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
@@ -84,6 +86,11 @@ func main() {
 	go bcast.Transmitter(58989, masterTx)
 	go bcast.Receiver(58989, masterRx)
 
+	clearOrderTx := communication.ClearOrderTx
+	clearOrderRx := communication.ClearOrderRx
+	go bcast.Transmitter(58990, clearOrderTx)
+	go bcast.Receiver(58990, clearOrderRx)
+
 	////////////////////////////////// initialize I/O channels polling
 	drv_buttons := make(chan elevio.ButtonEvent)
 	drv_floors := make(chan int)
@@ -146,6 +153,9 @@ func main() {
 			// fmt.Println(m)
 		case s := <-statesUpdateRx:
 			fsm.HandleNewElevState(s) // TODO
+		case u := <-clearOrderRx:
+			elevio.SetButtonLamp(elevio.BT_HallUp, u, false)
+			elevio.SetButtonLamp(elevio.BT_HallDown, u, false)
 		default:
 			masterCounter++
 			// fmt.Println(masterCounter)
@@ -177,27 +187,40 @@ func main() {
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 		case h := <-hallRx:
-			// acknowledge
+
+			// Acknowledge order
 			ackMsg := communication.AckMessage{Id: h.Id}
 			ackTx <- ackMsg
+
+			// Designate order
 			index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button)
-			fmt.Print(index)
 			fsm.CurrentElevStates[index].Requests[h.Button.Floor][h.Button.Button] = true
 
-			// For all connected peers - Should probably be mutable?
-			for i := 0; i < 2; i++ {
+			// If self-designated
+			if fsm.CurrentElevStates[index].Id == fsm.ElevState.Id {
+				fsm.ElevState = fsm.CurrentElevStates[index]
+				fsm.HandleNewElevState(fsm.ElevState)
+			}
+
+			// For all connected peers - TODO: Mutable
+			for i := 0; i < 3; i++ {
 				state := fsm.CurrentElevStates[i]
 				statesUpdateTx <- state
 			}
+			// Confirm order
 			elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
 
-		case s := <-stateMsgRx: // TODO handle
+		case u := <-clearOrderRx:
+			elevio.SetButtonLamp(elevio.BT_HallUp, u, false)
+			elevio.SetButtonLamp(elevio.BT_HallDown, u, false)
+
+		case s := <-stateMsgRx:
 			for i, elev := range fsm.CurrentElevStates {
 				if elev.Id == s.Id {
 					fsm.CurrentElevStates[i] = s
-					fmt.Println("recieved state:", s)
 				}
 			}
+
 		default:
 			// fmt.Println("sending message")
 			msg := "Alive"

@@ -27,18 +27,39 @@ func initElevator() {
 }
 
 func initCurrentElevators() {
-	Elev1 := elevator.Elevator{Id: "null", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-	Elev2 := elevator.Elevator{Id: "one", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-	CurrentElevStates = []elevator.Elevator{Elev1, Elev2}
+
+	Elev1 := elevator.Elevator{Id: "one", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+	Elev2 := elevator.Elevator{Id: "two", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+	Elev3 := elevator.Elevator{Id: "three", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+
+	CurrentElevStates = []elevator.Elevator{Elev1, Elev2, Elev3}
+
 }
 func onInitBetweenFloors() {
 	// outputDevice.motorDirection(D_Down);
 	// elevator.dirn = D_Down;
 	// elevator.behaviour = EB_Moving;
+
+}
+
+func UpdateLights(s elevator.Elevator) {
+	for i, call := range s.Requests {
+		if call[0] == true {
+			elevio.SetButtonLamp(elevio.BT_HallUp, i, true)
+		}
+		if call[1] == true {
+			elevio.SetButtonLamp(elevio.BT_HallDown, i, true)
+		}
+	}
 }
 
 func HandleNewElevState(s elevator.Elevator) {
-
+	UpdateLights(s)
+	for i, elev := range CurrentElevStates {
+		if elev.Id == s.Id {
+			CurrentElevStates[i] = s
+		}
+	}
 	if ElevState.Id == s.Id {
 		ElevState = s
 		// stuff, TODO: check this func
@@ -48,10 +69,12 @@ func HandleNewElevState(s elevator.Elevator) {
 			ElevState.Behaviour = elevator.EB_Moving
 		} else {
 			ElevState.Behaviour = elevator.EB_Idle
+			communication.SendClearedOrder(ElevState.Floor)
 		}
-	} else {
-		//communication.StatesUpdateTx <- s
+		communication.SendStateUpdate(ElevState)
+
 	}
+
 }
 
 // Handle functions
@@ -84,6 +107,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 			fmt.Println("Opening door")
 			ElevState.Behaviour = elevator.EB_DoorOpen
 			communication.SendStateUpdate(ElevState) // Hvilke state updates trenger master?
+			communication.SendClearedOrder(btn.Floor)
 		} else {
 			if btn.Button == elevio.BT_Cab {
 				ElevState.Requests[btn.Floor][btn.Button] = true
@@ -94,6 +118,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 				communication.SendStateUpdate(ElevState)
 			} else { // Hall request
 				communication.SendNewHallRequest(btn)
+				communication.SendStateUpdate(ElevState)
 				//if !ElevState.Master { // send to master
 				//	communication.SendNewHallRequest(btn)
 				//} //
@@ -106,6 +131,7 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 	case elevator.EB_DoorOpen:
 		if ElevState.Floor == btn.Floor {
 			timer_start()
+			communication.SendClearedOrder(btn.Floor)
 			fmt.Println("Extending door opening timer")
 		} else {
 			if btn.Button == elevio.BT_Cab {
@@ -113,12 +139,9 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 				elevio.SetButtonLamp(btn.Button, btn.Floor, true)
 				communication.SendStateUpdate(ElevState)
 			} else { // hall request
-				if !ElevState.Master { // send to master
-					communication.SendNewHallRequest(btn)
-				} else if ElevState.Master {
-					// TODO
-					// check connection to others in some way
-					// then send to new hall request (or some function that does the same as new hall request receiver)
+				communication.SendNewHallRequest(btn)
+				if ElevState.Master {
+					communication.SendStateUpdate(ElevState)
 				}
 			}
 		}
@@ -129,18 +152,12 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 			elevio.SetButtonLamp(btn.Button, btn.Floor, true)
 			communication.SendStateUpdate(ElevState)
 		} else { // Hall request
-			if !ElevState.Master { // send to master
-				communication.SendNewHallRequest(btn)
-			} else if ElevState.Master {
-				// TODO
-				// check connection to others in some way
-				// then send to new hall request (or some function that does the same as new hall request receiver)
+			communication.SendNewHallRequest(btn)
+			if ElevState.Master {
+				communication.SendStateUpdate(ElevState)
 			}
 		}
 	}
-
-	// fmt.Println("New state:")
-	// elevator_print(elevator) TODO
 }
 
 func HandleNewFloor(floor int, numFloors int) {
@@ -163,7 +180,6 @@ func HandleNewFloor(floor int, numFloors int) {
 					// Stop
 					ElevState.Dir = elevio.MD_Stop
 					elevio.SetMotorDirection(ElevState.Dir)
-
 					elevio.SetDoorOpenLamp(true)
 					timer_start()
 					fmt.Println("Opening door")
@@ -179,6 +195,7 @@ func HandleNewFloor(floor int, numFloors int) {
 					ElevState.Requests[floor][i] = false
 					elevio.SetButtonLamp(i, floor, false)
 					communication.SendStateUpdate(ElevState)
+					communication.SendClearedOrder(floor)
 				}
 			}
 		}

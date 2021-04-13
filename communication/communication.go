@@ -63,3 +63,9 @@ func SendNewHallRequest(btn elevio.ButtonEvent) {
 	HallTx <- msg
 	go AcknowledgeMsg(msg, HallTx)
 }
+func SendClearedOrder(floor int) {
+	for i := 0; i < 3; i++ {
+		ClearOrderTx <- floor
+	}
+}
+

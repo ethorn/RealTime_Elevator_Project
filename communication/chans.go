@@ -27,3 +27,8 @@ var AckRx chan AckMessage = make(chan AckMessage)
 // Make channels for sending/recieving Master/Slave messages
 var MasterTx chan string = make(chan string, 1)
 var MasterRx chan string = make(chan string, 1)
+
+// Make channels for sending/recieving Order Updates
+var ClearOrderTx chan int = make(chan int)
+var ClearOrderRx chan int = make(chan int)
+

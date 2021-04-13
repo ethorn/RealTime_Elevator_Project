@@ -105,22 +105,20 @@ func TimeToIdle(e elevator.Elevator) int {
 	}
 }
 
+
 func DesignateOrder(elevators []elevator.Elevator, order elevio.ButtonEvent) int {
 	var elevatorcost []int
-	var index int
+	index := 0
 	for _, elevator := range elevators {
 		tempelevator := elevator
 		tempelevator.Requests[order.Floor][1] = true
 		elevatorcost = append(elevatorcost, TimeToIdle(tempelevator))
 	}
 
+	min := elevatorcost[0]
 	for i, cost := range elevatorcost {
-		var currentcost int
-		if i == 0 {
-			currentcost := cost
-			fmt.Println(currentcost)
-		}
-		if cost < currentcost {
+		if cost < min {
+			min = cost
 			index = i
 
 		}

@@ -69,6 +69,8 @@ func HandleNewElevState(s elevator.Elevator) {
 			ElevState.Behaviour = elevator.EB_Moving
 		} else {
 			ElevState.Behaviour = elevator.EB_Idle
+			ElevState.Requests[ElevState.Floor][0] = false
+			ElevState.Requests[ElevState.Floor][1] = false
 			communication.SendClearedOrder(ElevState.Floor)
 		}
 		communication.SendStateUpdate(ElevState)

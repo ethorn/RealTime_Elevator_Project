@@ -8,19 +8,11 @@ import (
 	"fmt"
 )
 
-func OnClearedRequest(test int) {
-	fmt.Println(test)
-	fmt.Println("Here we should probably do something")
-}
-
-func Requests_clearAtCurrentFloor(e_old elevator.Elevator, sim bool) elevator.Elevator {
+func Requests_clearAtCurrentFloor(e_old elevator.Elevator) elevator.Elevator {
 	e := e_old
 	for btn := 0; btn < config.N_BUTTONS; btn++ {
 		if e.Requests[e.Floor][btn] == true {
 			e.Requests[e.Floor][btn] = false
-			if sim {
-				OnClearedRequest(btn)
-			}
 		}
 	}
 
@@ -88,7 +80,7 @@ func TimeToIdle(e elevator.Elevator) int {
 
 	for {
 		if single_elev_requests.ShouldStop(e) {
-			e = Requests_clearAtCurrentFloor(e, false)
+			e = Requests_clearAtCurrentFloor(e)
 			duration = duration + config.DOOR_OPEN_TIME
 			e.Dir = single_elev_requests.ChooseDirection(e)
 			if e.Dir == elevio.MD_Stop {

@@ -7,6 +7,11 @@ import (
 )
 
 func ShouldStop(e elevator.Elevator) bool {
+
+	if e.Floor == 0 || e.Floor == config.N_FLOORS-1 { //HUSK Fra foreleseren, "it's ugly but it works"
+		return true
+	}
+
 	switch e.Dir {
 	case elevio.MD_Up:
 		return e.Requests[e.Floor][elevio.BT_HallUp] || e.Requests[e.Floor][elevio.BT_Cab] || !Requests_above(e)

@@ -199,6 +199,7 @@ func main() {
 			// If self-designated
 			if fsm.CurrentElevStates[index].Id == fsm.ElevState.Id {
 				fsm.ElevState = fsm.CurrentElevStates[index]
+				fsm.CurrentElevStates[index].Requests[h.Button.Floor][h.Button.Button] = false
 				fsm.HandleNewElevState(fsm.ElevState)
 			}
 

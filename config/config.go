@@ -4,7 +4,7 @@ const N_ELEVATORS = 3
 const N_FLOORS = 4
 const N_BUTTONS = 3
 const TRAVEL_TIME = 5
-const DOOR_OPEN_TIME = 3
+const DOOR_OPEN_TIME = 2
 
 type ClearRequestVariant int
 

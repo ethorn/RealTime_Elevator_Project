@@ -13,6 +13,7 @@ const (
 	EB_Moving                     = 1
 )
 
+//? Kan man sette default-verdier, f.eks. Id null?
 type Elevator struct {
 	Id        string
 	Master    bool

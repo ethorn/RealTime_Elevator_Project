@@ -16,6 +16,11 @@ var StateMsgRx chan elevator.Elevator = make(chan elevator.Elevator)
 var StatesUpdateTx chan elevator.Elevator = make(chan elevator.Elevator)
 var StatesUpdateRx chan elevator.Elevator = make(chan elevator.Elevator)
 
+// Nvm
+// Channel for receiving one StateMsg, used for selecting the newest master
+// Make channel for transmitting current peers
+//var UpdatedPeerStateRx chan elevator.Elevator = make(chan elevator.Elevator)
+
 // Make channels for sending/receiving hall requests
 var HallTx chan ButtonMessage = make(chan ButtonMessage)
 var HallRx chan ButtonMessage = make(chan ButtonMessage)
@@ -31,4 +36,3 @@ var MasterRx chan string = make(chan string, 1)
 // Make channels for sending/recieving Order Updates
 var ClearOrderTx chan int = make(chan int)
 var ClearOrderRx chan int = make(chan int)
-

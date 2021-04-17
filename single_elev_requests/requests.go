@@ -8,7 +8,7 @@ import (
 
 func ShouldStop(e elevator.Elevator) bool {
 
-	if e.Floor == 0 || e.Floor == config.N_FLOORS-1 { //HUSK Fra foreleseren, "it's ugly but it works"
+	if e.Floor == 0 || e.Floor == config.N_FLOORS-1 {
 		return true
 	}
 
@@ -18,7 +18,7 @@ func ShouldStop(e elevator.Elevator) bool {
 	case elevio.MD_Down:
 		return e.Requests[e.Floor][elevio.BT_HallDown] || e.Requests[e.Floor][elevio.BT_Cab] || !Requests_below(e)
 	case elevio.MD_Stop:
-		return true
+		return true //evt. bare fallthrough isf, hvis det er penere kodemessig
 	default:
 		return true
 	}

@@ -1,6 +1,7 @@
 package order_logic
 
 import (
+	"elevator_project/communication"
 	"elevator_project/config"
 	"elevator_project/elevator"
 	"elevator_project/elevio"
@@ -97,14 +98,27 @@ func TimeToIdle(e elevator.Elevator) int {
 	}
 }
 
-
-func DesignateOrder(elevators []elevator.Elevator, order elevio.ButtonEvent) int {
+func DesignateOrder(CurrentElevStates map[string]elevator.Elevator, order elevio.ButtonEvent, unservicablePeers []string) string {
 	var elevatorcost []int
+	var elevatorcostid []string
 	index := 0
-	for _, elevator := range elevators {
-		tempelevator := elevator
-		tempelevator.Requests[order.Floor][1] = true
-		elevatorcost = append(elevatorcost, TimeToIdle(tempelevator))
+	runCost := true
+	for _, elevator := range CurrentElevStates {
+		if len(unservicablePeers) > 0 {
+			for _, blocked := range unservicablePeers {
+				if blocked == elevator.Id {
+					runCost = false
+				}
+			}
+		}
+
+		if runCost == true {
+			tempelevator := elevator
+			tempelevator.Requests[order.Floor][1] = true
+			elevatorcost = append(elevatorcost, TimeToIdle(tempelevator))
+			elevatorcostid = append(elevatorcostid, elevator.Id)
+		}
+		runCost = true
 	}
 
 	min := elevatorcost[0]
@@ -115,6 +129,32 @@ func DesignateOrder(elevators []elevator.Elevator, order elevio.ButtonEvent) int
 
 		}
 	}
-	fmt.Println("New request assigned to elevator", elevators[index].Id)
-	return index
+	fmt.Println("New request assigned to elevator", elevatorcostid[index])
+	return elevatorcostid[index] //Check this
+}
+
+func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string) map[string]elevator.Elevator {
+	for id, elev := range CurrentElevStates {
+		if lostpeer == elev.Id {
+			for j := 0; j < 4; j++ {
+				if elev.Requests[j][0] {
+					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallUp}
+					communication.SendNewHallRequest(tempbtn)
+					designatedElev := CurrentElevStates[id]
+					designatedElev.Requests[j][0] = true
+					CurrentElevStates[id] = designatedElev
+
+				}
+				if elev.Requests[j][1] {
+					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
+					communication.SendNewHallRequest(tempbtn)
+					designatedElev := CurrentElevStates[id]
+					designatedElev.Requests[j][0] = true
+					CurrentElevStates[id] = designatedElev
+				}
+			}
+		}
+	}
+	fmt.Print("Orders successfully redistributed")
+	return CurrentElevStates
 }

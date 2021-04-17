@@ -2,6 +2,7 @@ package fsm
 
 import (
 	"elevator_project/communication"
+	//"elevator_project/config"
 	"elevator_project/elevator"
 	"elevator_project/elevio"
 	"elevator_project/single_elev_requests"
@@ -15,31 +16,62 @@ var d elevio.MotorDirection
 var ElevState elevator.Elevator
 var timerEndTime time.Time
 var timerActive bool
-var CurrentElevStates []elevator.Elevator
+var CurrentElevStates map[string]elevator.Elevator
 
-func init() {
-	initElevator()
-	initCurrentElevators()
+//! Flyttet over til main for bedre lesbarhet
+// func init() {
+// 	initElevator()
+// 	initCurrentElevators(config.N_ELEVATORS)
+// }
+
+//?? Hvorfor er Id "null"?
+func InitElevator() {
+	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
 }
 
-func initElevator() {
-	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: -1, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-}
-
-func initCurrentElevators() {
-
-	Elev1 := elevator.Elevator{Id: "one", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-	Elev2 := elevator.Elevator{Id: "two", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-	Elev3 := elevator.Elevator{Id: "three", Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-
-	CurrentElevStates = []elevator.Elevator{Elev1, Elev2, Elev3}
-
-}
-func onInitBetweenFloors() {
+//? Nødvendig med alt som er inni denne Init-en?
+func OnInitBetweenFloors() {
 	// outputDevice.motorDirection(D_Down);
 	// elevator.dirn = D_Down;
-	// elevator.behaviour = EB_Moving;
+	// elevator.behaviour = EB_Moving
+	//Måtte sette Floor = 0 for ikke å få panic: runtime error: index out of range [-1]
+	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: -1, Dir: elevio.MD_Down, Behaviour: elevator.EB_Moving}
+	//ElevState.Dir = elevio.MD_Down //? Hvorfor måtte jeg ikke ha denne med for at det skulle funke?
+	elevio.SetMotorDirection(elevio.MD_Down)
+	//fmt.Println("Should stop? ", single_elev_requests.ShouldStop(ElevState))
+}
 
+//? Hvorfor Floor: 0?
+func InitCurrentElevators(N_ELEVATORS int) {
+	CurrentElevStates = make(map[string]elevator.Elevator)
+	elevatorNames := []string{"one", "two", "three", "four", "five"}
+	for i := 0; i < N_ELEVATORS; i++ {
+		CurrentElevStates[elevatorNames[i]] = elevator.Elevator{Id: elevatorNames[i], Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+	}
+}
+
+
+
+
+// old implementation
+// func OnInitBetweenFloors() {
+// 	// outputDevice.motorDirection(D_Down);
+// 	// elevator.dirn = D_Down;
+// 	// elevator.behaviour = EB_Moving;
+// 	ElevState.Behaviour = elevator.EB_Moving
+// 	//ElevState.Dir = elevio.MD_Down //? Hvorfor måtte jeg ikke ha denne med for at det skulle funke?
+// 	elevio.SetMotorDirection(elevio.MD_Down)
+// 	fmt.Println("Should stop? ", single_elev_requests.ShouldStop(ElevState))
+// }
+
+func InitializeLights(CurrentElevStates map[string]elevator.Elevator) {
+	for _, elev := range CurrentElevStates {
+		for i, req := range elev.Requests {
+			elevio.SetButtonLamp(elevio.BT_HallUp, i, req[0])
+			elevio.SetButtonLamp(elevio.BT_HallDown, i, req[1])
+			elevio.SetButtonLamp(elevio.BT_Cab, i, req[2])
+		}
+	}
 }
 
 func UpdateLights(s elevator.Elevator) {
@@ -49,6 +81,11 @@ func UpdateLights(s elevator.Elevator) {
 		}
 		if call[1] == true {
 			elevio.SetButtonLamp(elevio.BT_HallDown, i, true)
+		}
+		if s.Id == ElevState.Id {
+			if call[2] == true {
+				elevio.SetButtonLamp(elevio.BT_Cab, i, true)
+			}
 		}
 	}
 }
@@ -99,7 +136,7 @@ func HandleDoorTimeOut(e bool) {
 }
 
 func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
-	fmt.Printf("%+v\n", btn) // debuggin: prints out the button event
+	fmt.Println("ButtonEvent: ", btn) // debuggin: prints out the button event
 
 	switch ElevState.Behaviour {
 	case elevator.EB_Idle:
@@ -162,13 +199,59 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 	}
 }
 
+// Slik jeg har den
+// func HandleNewFloor(floor int, numFloors int) {
+// 	// If new floor (not same floor, or not in between), print floor
+// 	// And change direction if in bottom or top
+
+// 	// TODO
+
+// 	//fmt.Printf("%+v\n", floor) //OBS kommenterte denne ut
+
+// 	ElevState.Floor = floor
+// 	elevio.SetFloorIndicator(ElevState.Floor)
+// 	communication.SendStateUpdate(ElevState)
+
+// 	switch ElevState.Behaviour {
+// 	case elevator.EB_Moving:
+// 		if single_elev_requests.ShouldStop(ElevState) { 
+// 			for i := elevio.ButtonType(0); i < 3; i++ {
+// 				if ElevState.Requests[floor][i] { //TODO Foreleseren uttrykte skepsis
+// 					// Stop
+
+// 					if i == elevio.BT_HallUp {
+// 						fmt.Println("entering: Hall up please")
+// 					} else if i == elevio.BT_HallDown {
+// 						fmt.Println("entering: Hall down please")
+// 					} else if i == elevio.BT_Cab {
+// 						fmt.Println("leaving: cab")
+// 					}
+// 					ElevState.Requests[floor][i] = false
+// 					elevio.SetButtonLamp(i, floor, false)
+
+// 				}
+// 			}
+// 			// TODO flyttet ut fra for-loopen over etter råd fra foreleseren, kanskje litt klumsete overflytting	
+// 			elevio.SetDoorOpenLamp(true)
+// 			timer_start()
+// 			fmt.Println("Opening door")
+// 			ElevState.Behaviour = elevator.EB_DoorOpen
+// 			ElevState.Dir = elevio.MD_Stop
+// 			elevio.SetMotorDirection(ElevState.Dir)
+// 			communication.SendStateUpdate(ElevState)
+// 			communication.SendClearedOrder(floor)
+// 		}
+// 	}
+// }
+
+// Slik Marcus hadde den
 func HandleNewFloor(floor int, numFloors int) {
 	// If new floor (not same floor, or not in between), print floor
 	// And change direction if in bottom or top
 
 	// TODO
 
-	fmt.Printf("%+v\n", floor)
+	fmt.Println("Floor: ", floor)
 
 	ElevState.Floor = floor
 	elevio.SetFloorIndicator(ElevState.Floor)
@@ -179,13 +262,7 @@ func HandleNewFloor(floor int, numFloors int) {
 		if single_elev_requests.ShouldStop(ElevState) {
 			for i := elevio.ButtonType(0); i < 3; i++ {
 				if ElevState.Requests[floor][i] {
-					// Stop
-					ElevState.Dir = elevio.MD_Stop
-					elevio.SetMotorDirection(ElevState.Dir)
-					elevio.SetDoorOpenLamp(true)
-					timer_start()
-					fmt.Println("Opening door")
-					ElevState.Behaviour = elevator.EB_DoorOpen
+
 
 					if i == elevio.BT_HallUp {
 						fmt.Println("entering: Hall up please")
@@ -196,16 +273,25 @@ func HandleNewFloor(floor int, numFloors int) {
 					}
 					ElevState.Requests[floor][i] = false
 					elevio.SetButtonLamp(i, floor, false)
-					communication.SendStateUpdate(ElevState)
-					communication.SendClearedOrder(floor)
+					ElevState.Dir = elevio.MD_Stop //OBS dobbelt opp ift det under, ville ikke at det skulle skje misforståelse mellom denne når har døren åpen
+					elevio.SetDoorOpenLamp(true)
+					timer_start()
+					fmt.Println("Opening door")
+					ElevState.Behaviour = elevator.EB_DoorOpen		
 				}
+					// Stop
+				ElevState.Dir = elevio.MD_Stop
+				elevio.SetMotorDirection(ElevState.Dir)
+
+				communication.SendStateUpdate(ElevState)
+				communication.SendClearedOrder(floor)						
 			}
 		}
 	}
 }
 
 func HandleChangeInObstruction(obstruction bool) {
-	fmt.Printf("%+v\n", obstruction)
+	fmt.Println("Obstruction?", "%+v\n", obstruction) //? Erstatter tonnevis av printf's med println's, går vel greit kodemessig?
 	if obstruction {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		extend_timer_on_obstruction()
@@ -220,7 +306,8 @@ func HandleChangeInStopBtn(d bool, numFloors int) {
 	// if stop button is pressed, print it
 	// then un-light all button lamps
 	// TODO: choose ourselves
-	fmt.Printf("%+v\n", d)
+	// TODO bare minimum set the stop light
+	fmt.Println("Stop button pressed?", "%+v\n", d)
 	for f := 0; f < numFloors; f++ {
 		for b := elevio.ButtonType(0); b < 3; b++ { // initializes b to 0 (ButtonType is int)
 			elevio.SetButtonLamp(b, f, false)

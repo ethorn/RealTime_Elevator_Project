@@ -199,60 +199,10 @@ func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
 	}
 }
 
-// Slik jeg har den
-// func HandleNewFloor(floor int, numFloors int) {
-// 	// If new floor (not same floor, or not in between), print floor
-// 	// And change direction if in bottom or top
-
-// 	// TODO
-
-// 	//fmt.Printf("%+v\n", floor) //OBS kommenterte denne ut
-
-// 	ElevState.Floor = floor
-// 	elevio.SetFloorIndicator(ElevState.Floor)
-// 	communication.SendStateUpdate(ElevState)
-
-// 	switch ElevState.Behaviour {
-// 	case elevator.EB_Moving:
-// 		if single_elev_requests.ShouldStop(ElevState) { 
-// 			for i := elevio.ButtonType(0); i < 3; i++ {
-// 				if ElevState.Requests[floor][i] { //TODO Foreleseren uttrykte skepsis
-// 					// Stop
-
-// 					if i == elevio.BT_HallUp {
-// 						fmt.Println("entering: Hall up please")
-// 					} else if i == elevio.BT_HallDown {
-// 						fmt.Println("entering: Hall down please")
-// 					} else if i == elevio.BT_Cab {
-// 						fmt.Println("leaving: cab")
-// 					}
-// 					ElevState.Requests[floor][i] = false
-// 					elevio.SetButtonLamp(i, floor, false)
-
-// 				}
-// 			}
-// 			// TODO flyttet ut fra for-loopen over etter råd fra foreleseren, kanskje litt klumsete overflytting	
-// 			elevio.SetDoorOpenLamp(true)
-// 			timer_start()
-// 			fmt.Println("Opening door")
-// 			ElevState.Behaviour = elevator.EB_DoorOpen
-// 			ElevState.Dir = elevio.MD_Stop
-// 			elevio.SetMotorDirection(ElevState.Dir)
-// 			communication.SendStateUpdate(ElevState)
-// 			communication.SendClearedOrder(floor)
-// 		}
-// 	}
-// }
-
-// Slik Marcus hadde den
 func HandleNewFloor(floor int, numFloors int) {
-	// If new floor (not same floor, or not in between), print floor
-	// And change direction if in bottom or top
+	fmt.Println("Arriving at floor: ", floor)
 
-	// TODO
-
-	fmt.Println("Floor: ", floor)
-
+	// Set new state and send it to other elevators
 	ElevState.Floor = floor
 	elevio.SetFloorIndicator(ElevState.Floor)
 	communication.SendStateUpdate(ElevState)
@@ -260,32 +210,30 @@ func HandleNewFloor(floor int, numFloors int) {
 	switch ElevState.Behaviour {
 	case elevator.EB_Moving:
 		if single_elev_requests.ShouldStop(ElevState) {
-			for i := elevio.ButtonType(0); i < 3; i++ {
-				if ElevState.Requests[floor][i] {
-
-
-					if i == elevio.BT_HallUp {
+			// Stop the elevator and open the door
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			elevio.SetDoorOpenLamp(true)
+			timer_start()
+			fmt.Println("Opening door")
+			ElevState.Behaviour = elevator.EB_DoorOpen
+			
+			// check which button has a running request for this floor
+			for btn := elevio.ButtonType(0); btn < 3; btn++ {
+				if ElevState.Requests[floor][btn] {
+					if btn == elevio.BT_HallUp {
 						fmt.Println("entering: Hall up please")
-					} else if i == elevio.BT_HallDown {
+					} else if btn == elevio.BT_HallDown {
 						fmt.Println("entering: Hall down please")
-					} else if i == elevio.BT_Cab {
+					} else if btn == elevio.BT_Cab {
 						fmt.Println("leaving: cab")
 					}
-					ElevState.Requests[floor][i] = false
-					elevio.SetButtonLamp(i, floor, false)
-					ElevState.Dir = elevio.MD_Stop //OBS dobbelt opp ift det under, ville ikke at det skulle skje misforståelse mellom denne når har døren åpen
-					elevio.SetDoorOpenLamp(true)
-					timer_start()
-					fmt.Println("Opening door")
-					ElevState.Behaviour = elevator.EB_DoorOpen		
-				}
-					// Stop
-				ElevState.Dir = elevio.MD_Stop
-				elevio.SetMotorDirection(ElevState.Dir)
-
-				communication.SendStateUpdate(ElevState)
-				communication.SendClearedOrder(floor)						
+					// clear request locally and notify other elevators
+					ElevState.Requests[floor][btn] = false
+					elevio.SetButtonLamp(btn, floor, false)
+				}					
 			}
+			communication.SendClearedOrder(floor)
+			communication.SendStateUpdate(ElevState)
 		}
 	}
 }

@@ -17,8 +17,6 @@ func ShouldStop(e elevator.Elevator) bool {
 		return e.Requests[e.Floor][elevio.BT_HallUp] || e.Requests[e.Floor][elevio.BT_Cab] || !Requests_above(e)
 	case elevio.MD_Down:
 		return e.Requests[e.Floor][elevio.BT_HallDown] || e.Requests[e.Floor][elevio.BT_Cab] || !Requests_below(e)
-	case elevio.MD_Stop:
-		return true //evt. bare fallthrough isf, hvis det er penere kodemessig
 	default:
 		return true
 	}

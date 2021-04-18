@@ -22,15 +22,17 @@ func InitElevator(id string) {
 	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
 }
 
-func OnInitBetweenFloors() {
-	ElevState.Behaviour = elevator.EB_Moving
-	ElevState.Dir = elevio.MD_Down
-	elevio.SetMotorDirection(ElevState.Dir)
+func OnInitBetweenFloors(id string) {
+	 //? Det å sette Floor 0 her blir kanskje litt feil
+	ElevState = elevator.Elevator{Id: id, Master: false, Floor: 0, Dir: elevio.MD_Down, Behaviour: elevator.EB_Moving}
+	//ElevState.Behaviour = elevator.EB_Moving
+	//ElevState.Dir = elevio.MD_Down
+    elevio.SetMotorDirection(ElevState.Dir)
 }
 
 func InitCurrentElevators(N_ELEVATORS int) {
 	 // rename to AllElevStates?
-	 CurrentElevStates = make(map[string]elevator.Elevator)
+	 CurrentElevStates = make(map[string]elevator.Elevator)	
 	elevatorNames := []string{"one", "two", "three", "four", "five"}
 	for i := 0; i < N_ELEVATORS; i++ {
 		CurrentElevStates[elevatorNames[i]] = elevator.Elevator{Id: elevatorNames[i], Master: false, Floor: -1, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
@@ -228,7 +230,7 @@ func HandleNewFloor(floor int, numFloors int) {
 }
 
 func HandleChangeInObstruction(obstruction bool) {
-	fmt.Println("Obstruction?", "%+v\n", obstruction) //? Erstatter tonnevis av printf's med println's, går vel greit kodemessig?
+	fmt.Println("Obstruction?", obstruction) //? Erstatter tonnevis av printf's med println's, går vel greit kodemessig?
 	if obstruction {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		extend_timer_on_obstruction()

@@ -30,9 +30,9 @@ func main() {
 	fsm.ElevState.Id = id
 
 	////////////////////////////////////// Init driver
-	numFloors := 4 //TODO kan settes inn i config-en
+	// numFloors := 4 //! Brukte heller config-en
 	fmt.Println("localhost:" + port)
-	elevio.Init("localhost:"+port, numFloors)
+	elevio.Init("localhost:"+port, config.N_FLOORS)
 
 	//////////////////////////////////// Init UDP broadcast channels
 	if id == "" {
@@ -45,10 +45,12 @@ func main() {
 	}
 
 	//////////////////////////////////// Initialize elevator
+	if elevio.GetFloor() == -1 {
+		fsm.OnInitBetweenFloors(id)
+	} else {
 	fsm.InitElevator(id)
-	if fsm.ElevState.Floor == -1 {
-		fsm.OnInitBetweenFloors()
 	}
+
 	fsm.InitCurrentElevators(config.N_ELEVATORS)
 
 	/////////////////////////////////// Wipe lights
@@ -101,7 +103,7 @@ func main() {
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
 	drv_stop := make(chan bool)
-	doorTimeOutAlert := make(chan bool) // TODO
+	doorTimeOutAlert := make(chan bool) // TODO //? Er ikke denne done?
 	go elevio.PollButtons(drv_buttons)
 	go elevio.PollFloorSensor(drv_floors)
 	go elevio.PollObstructionSwitch(drv_obstr)
@@ -144,13 +146,13 @@ func main() {
 			fsm.HandleButtonEvent(a, doorTimeOutAlert)
 
 		case b := <-drv_floors:
-			fsm.HandleNewFloor(b, numFloors)
+			fsm.HandleNewFloor(b, config.N_FLOORS)
 
 		case c := <-drv_obstr:
 			fsm.HandleChangeInObstruction(c)
 
 		case d := <-drv_stop:
-			fsm.HandleChangeInStopBtn(d, numFloors)
+			fsm.HandleChangeInStopBtn(d, config.N_FLOORS)
 
 		case e := <-doorTimeOutAlert:
 			fsm.HandleDoorTimeOut(e)
@@ -158,35 +160,40 @@ func main() {
 
 		case p := <-peerUpdateCh:
 			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", p.Peers)
-			currentPeers = p.Peers
-			fmt.Printf("  New:      %q\n", p.New)
-			fmt.Printf("  Lost:     %q\n", p.Lost)
-			lostPeers = p.Lost
-			unservicablePeers = p.Lost
+            fmt.Printf("  Peers:    %q\n", p.Peers)
+            currentPeers = p.Peers
+            fmt.Printf("  New:      %q\n", p.New)
+            fmt.Printf("  Lost:     %q\n", p.Lost)
+            lostPeers = append(lostPeers, p.Lost...)
+            unservicablePeers = p.Lost
 
-			//Handle disconnected elevator as master
-			if len(lostPeers) > 0 {
-				if fsm.ElevState.Master == true {
-					for _, peers := range lostPeers {
-						order_logic.RedistributeOrders(fsm.CurrentElevStates, peers)
-						if len(lostPeers) == 1 {
-							lostPeers = nil
-						} else {
-							lostPeers = lostPeers[2:]
-						}
-					}
-				}
-			}
+            //Handle disconnected elevator as master
+            if len(p.Lost) > 0 {
+                if fsm.ElevState.Master == true {
+                    for _, peers := range p.Lost {
+                        order_logic.RedistributeOrders(fsm.CurrentElevStates, peers)
 
-			// Update states
-			if len(p.New) > 0 {
-				if fsm.ElevState.Master == true {
-					for _, state := range fsm.CurrentElevStates {
-						statesUpdateTx <- state
-					}
-				}
-			}
+                    }
+                }
+            }
+
+            // Update states
+            fmt.Print(lostPeers)
+            if len(p.New) > 0 && len(lostPeers) > 0 {
+                if fsm.ElevState.Master == true {
+                    for _, peers := range lostPeers {
+                        if len(lostPeers) == 1 {
+                            lostPeers = nil
+                        } else {
+                            lostPeers = lostPeers[2:]
+                        }
+                        fmt.Print("Updated cab calls of elevator", peers, "\n")
+                    }
+                    for _, state := range fsm.CurrentElevStates {
+                        statesUpdateTx <- state
+                    }
+                }
+            }
 
 		case <-masterRx:
 			masterCounter = 0
@@ -233,7 +240,7 @@ func main() {
 			for i, elev := range fsm.CurrentElevStates {
 				if elev.Id == u.Id {
 					fsm.CurrentElevStates[i] = u
-					fmt.Println("Received the following state: \n", u)
+					fmt.Println("Received the following state: \n", u) //TODO denne blir fort veldig overveldet
 				}
 			}
 

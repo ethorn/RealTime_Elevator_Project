@@ -23,11 +23,9 @@ func InitElevator(id string) {
 }
 
 func OnInitBetweenFloors(id string) {
-	 //? Det å sette Floor 0 her blir kanskje litt feil
-	ElevState = elevator.Elevator{Id: id, Master: false, Floor: 0, Dir: elevio.MD_Down, Behaviour: elevator.EB_Moving}
-	//ElevState.Behaviour = elevator.EB_Moving
-	//ElevState.Dir = elevio.MD_Down
-    elevio.SetMotorDirection(ElevState.Dir)
+	ElevState.Behaviour = elevator.EB_Moving
+	ElevState.Dir = elevio.MD_Down
+	elevio.SetMotorDirection(ElevState.Dir)
 }
 
 func InitCurrentElevators(N_ELEVATORS int) {

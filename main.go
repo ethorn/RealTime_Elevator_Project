@@ -45,10 +45,9 @@ func main() {
 	}
 
 	//////////////////////////////////// Initialize elevator
+	fsm.InitElevator(id)
 	if elevio.GetFloor() == -1 {
 		fsm.OnInitBetweenFloors(id)
-	} else {
-	fsm.InitElevator(id)
 	}
 
 	fsm.InitCurrentElevators(config.N_ELEVATORS)

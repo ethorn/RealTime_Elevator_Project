@@ -1,21 +1,21 @@
 package main
 
 import (
+	"elevator_project/cabBackup"
 	"elevator_project/communication"
+	"elevator_project/config"
 	"elevator_project/elevio"
 	"elevator_project/fsm"
 	"elevator_project/network/bcast"
 	"elevator_project/network/localip"
 	"elevator_project/network/peers"
 	"elevator_project/order_logic"
-	"elevator_project/cabBackup"
-	"elevator_project/config"
 	"flag"
 	"fmt"
 	"os"
-	"time"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -48,30 +48,29 @@ func main() {
 			break
 		}
 		select {
-		case <- processPairRx:
+		case <-processPairRx:
 			processPairCount = 0
 		default:
-			time.Sleep(20*time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 			processPairCount++
 		}
 	}
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
 
-	arg_pp := strconv.Itoa(pp)
+	//arg_pp := strconv.Itoa(pp)
 	/////// MAC
-	currentDir, _ := os.Getwd()
-	filename := currentDir+"/main.go"
-	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run ` + filename + ` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
-	
-	 ////// WINDOWS
-	//  arg_pp := strconv.Itoa(pp)
-	//  exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
+	//currentDir, _ := os.Getwd()
+	//filename := currentDir + "/main.go"
+	//cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
+	//err := cmd.Run()
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
 
+	////// WINDOWS
+	arg_pp := strconv.Itoa(pp)
+	exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
 
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
@@ -100,7 +99,7 @@ func main() {
 
 	// make channels for ...
 	stateMsgTx := communication.StateMsgTx
-	stateMsgRx := communication.StateMsgRx  // TODO: this should be a struct with all elevators states
+	stateMsgRx := communication.StateMsgRx // TODO: this should be a struct with all elevators states
 	go bcast.Transmitter(46569, stateMsgTx)
 	go bcast.Receiver(46569, stateMsgRx)
 
@@ -147,10 +146,10 @@ func main() {
 	go fsm.PollTimer(doorTimeOutAlert)
 
 	//////////////////////////////////// Initialize cab backup module
-	cabBackup.Init(id)	
+	cabBackup.Init(id)
 
 	//////////////////////////////////// Initialize elevator
-	
+
 	if elevio.GetFloor() == -1 {
 		fsm.OnInitBetweenFloors(id)
 	} else {
@@ -159,35 +158,33 @@ func main() {
 	fsm.InitCurrentElevators(config.N_ELEVATORS)
 	fsm.InitializeLights(fsm.CurrentElevStates)
 
-
 	go fsm.Lights()
 
 	//////////////////////////////////// Keeping track of peers
 	var currentPeers []string
 	var lostPeers []string
-	var unservicablePeers []string
 
 	//////////////////////////////////// Start the elevator
 	fmt.Println("Starting as slave...")
 	masterCounter := 0
 	for {
 		// TODO forklar hvorfor er utenfor for-selecten
-        // Check if master in each handler function
-        if masterCounter > 300 { // break if no master message in 6 seconds
-            if id == currentPeers[0] {
-                fmt.Println("\n... Becoming master\n")
-                fsm.ElevState.Master = true
+		// Check if master in each handler function
+		if masterCounter > 300 { // break if no master message in 6 seconds
+			if id == currentPeers[0] {
+				fmt.Println("\n... Becoming master\n")
+				fsm.ElevState.Master = true
 
-                //Redistribute orders if master disconnected
-                if len(lostPeers) > 0 {
-                    for _, peers := range lostPeers {
-                        fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-                        lostPeers = fsm.RemovePeer(lostPeers, peers)
-                    }
-                }
-            }
-            masterCounter = 0
-        }
+				//Redistribute orders if master disconnected
+				if len(lostPeers) > 0 {
+					for _, peers := range lostPeers {
+						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
+						lostPeers = fsm.RemovePeer(lostPeers, peers)
+					}
+				}
+			}
+			masterCounter = 0
+		}
 		select {
 
 		case a := <-drv_buttons:
@@ -206,26 +203,27 @@ func main() {
 		case e := <-doorTimeOutAlert:
 			fsm.HandleDoorTimeOut(e)
 			fsm.Timer_stop()
-		
+
 		case p := <-peerUpdateCh:
 			fmt.Printf("Peer update:\n")
-            fmt.Printf("  Peers:    %q\n", p.Peers)
-            currentPeers = p.Peers
-            fmt.Printf("  New:      %q\n", p.New)
-            fmt.Printf("  Lost:     %q\n", p.Lost)
-            lostPeers = append(lostPeers, p.Lost...)
-            unservicablePeers = p.Lost
+			fmt.Printf("  Peers:    %q\n", p.Peers)
+			currentPeers = p.Peers
+			fmt.Printf("  New:      %q\n", p.New)
+			fmt.Printf("  Lost:     %q\n", p.Lost)
+			lostPeers = append(lostPeers, p.Lost...)
+			fsm.UnservicablePeers = append(fsm.UnservicablePeers, p.Lost...)
+			fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, p.New)
 
-            //Handle disconnected elevator as master
+			//Handle disconnected elevator as master
 			if len(p.Lost) > 0 {
-                if fsm.ElevState.Master {
-                    for _, peers := range p.Lost {
-                        fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-                        fsm.Lights()
+				if fsm.ElevState.Master {
+					for _, peers := range p.Lost {
+						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
+						fsm.Lights()
 						lostPeers = fsm.RemovePeer(lostPeers, peers)
-                    }
-                }
-            }
+					}
+				}
+			}
 
 			if len(p.New) > 0 && id == p.New {
 				state := fsm.ElevState // Duplicate in order to avoid mutation
@@ -242,8 +240,8 @@ func main() {
 				if communication.BtnMsgChecksumIsOk(h) {
 					// Then ccknowledge message
 					ackMsg := communication.AckMessage{
-						MsgId: 		h.Id,
-						MsgSender: 	h.MsgSender,
+						MsgId:     h.Id,
+						MsgSender: h.MsgSender,
 					}
 					ackTx <- ackMsg
 				} else {
@@ -255,8 +253,8 @@ func main() {
 				fsm.CurrentElevStates[fsm.ElevState.Id] = fsm.ElevState
 
 				// Designate order
-				fmt.Println("Unservicable peers: ", unservicablePeers)
-				index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button, unservicablePeers)
+				fmt.Println("Unservicable peers: ", fsm.UnservicablePeers)
+				index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button, fsm.UnservicablePeers)
 				designatedElev := fsm.CurrentElevStates[index]
 				designatedElev.Requests[h.Button.Floor][h.Button.Button] = true
 				fsm.CurrentElevStates[index] = designatedElev
@@ -265,7 +263,7 @@ func main() {
 					statesUpdateTx <- state
 				}
 				// Confirm order
-				
+
 				// elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
 			}
 
@@ -277,8 +275,8 @@ func main() {
 			if communication.StateMsgChecksumIsOk(u) {
 				// Then ccknowledge message
 				ackMsg := communication.AckMessage{
-					MsgId: 		u.Id,
-					MsgSender: 	u.MsgSender,
+					MsgId:     u.Id,
+					MsgSender: u.MsgSender,
 				}
 				ackTx <- ackMsg
 			} else {
@@ -297,21 +295,21 @@ func main() {
 				}
 			}
 			fsm.Lights()
-		
+
 		case o := <-clearOrderRx:
 			// First check integrity with checksum
 			if communication.ClearedOrdrMsgChecksumIsOk(o) {
 				// Then Accknowledge message
 				ackMsg := communication.AckMessage{
-					MsgId: 		o.Id,
-					MsgSender: 	o.MsgSender,
+					MsgId:     o.Id,
+					MsgSender: o.MsgSender,
 				}
 				ackTx <- ackMsg
 			} else {
 				fmt.Println("Checksum failed from ClearedOrder message: ", o.Id)
 				continue
 			}
-//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
+			//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
 			for _, state := range fsm.CurrentElevStates {
 				state.Requests[o.Floor][elevio.BT_HallUp] = false
 				state.Requests[o.Floor][elevio.BT_HallDown] = false

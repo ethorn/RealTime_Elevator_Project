@@ -121,26 +121,23 @@ func main() {
 	fmt.Println("Starting as slave...")
 	masterCounter := 0
 	for {
-		// Check if master in each handler function
-		if masterCounter > 300 { // break if no master message in 6 seconds
-			if id == currentPeers[0] {
-				fmt.Println("\n... Becoming master\n")
-				fsm.ElevState.Master = true
+		// TODO forklar hvorfor er utenfor for-selecten
+        // Check if master in each handler function
+        if masterCounter > 300 { // break if no master message in 6 seconds
+            if id == currentPeers[0] {
+                fmt.Println("\n... Becoming master\n")
+                fsm.ElevState.Master = true
 
-				//Redistribute orders if master disconnected
-				if len(lostPeers) > 0 {
-					for _, peers := range lostPeers {
-						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-						if len(lostPeers) == 1 {
-							lostPeers = nil
-						} else {
-							lostPeers = lostPeers[2:]
-						}
-					}
-				}
-			}
-			masterCounter = 0
-		}
+                //Redistribute orders if master disconnected
+                if len(lostPeers) > 0 {
+                    for _, peers := range lostPeers {
+                        fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
+                        lostPeers = fsm.RemovePeer(lostPeers, peers)
+                    }
+                }
+            }
+            masterCounter = 0
+        }
 		select {
 
 		case a := <-drv_buttons:

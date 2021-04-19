@@ -6,8 +6,8 @@ import (
 	"elevator_project/config"
 )
 
-func timer_start() { // or use golang time timer
-	timerEndTime = time.Now().Add(time.Second*2)
+func timer_start() {
+	timerEndTime = time.Now().Add(time.Second*config.DOOR_OPEN_TIME)
 	timerActive = true
 }
 

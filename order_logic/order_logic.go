@@ -114,7 +114,7 @@ func DesignateOrder(CurrentElevStates map[string]elevator.Elevator, order elevio
 
 		if runCost == true {
 			tempelevator := elevator
-			tempelevator.Requests[order.Floor][1] = true
+			tempelevator.Requests[order.Floor][order.Button] = true
 			elevatorcost = append(elevatorcost, TimeToIdle(tempelevator))
 			elevatorcostid = append(elevatorcostid, elevator.Id)
 		}
@@ -133,13 +133,13 @@ func DesignateOrder(CurrentElevStates map[string]elevator.Elevator, order elevio
 	return elevatorcostid[index] //Check this
 }
 
-func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string) map[string]elevator.Elevator {
+func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string, senderId string) map[string]elevator.Elevator {
 	for id, elev := range CurrentElevStates {
 		if lostpeer == elev.Id {
 			for j := 0; j < 4; j++ {
 				if elev.Requests[j][0] {
 					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallUp}
-					communication.SendNewHallRequest(tempbtn)
+					communication.SendNewHallRequest(tempbtn, senderId)
 					designatedElev := CurrentElevStates[id]
 					designatedElev.Requests[j][0] = true
 					CurrentElevStates[id] = designatedElev
@@ -147,7 +147,7 @@ func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer
 				}
 				if elev.Requests[j][1] {
 					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
-					communication.SendNewHallRequest(tempbtn)
+					communication.SendNewHallRequest(tempbtn, senderId)
 					designatedElev := CurrentElevStates[id]
 					designatedElev.Requests[j][0] = true
 					CurrentElevStates[id] = designatedElev

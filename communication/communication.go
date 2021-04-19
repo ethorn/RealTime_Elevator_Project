@@ -224,4 +224,3 @@ func SendClearedOrder(floor int, senderId string) {
 	ackSentCount := 0
 	go confirmAcknowledge(msg, ClearOrderTx, maxAckToSend, ackSentCount)
 }
-

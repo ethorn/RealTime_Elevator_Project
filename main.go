@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"os/exec"
+	"strconv"
 )
 
 func main() {
@@ -25,6 +27,51 @@ func main() {
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
 	flag.Parse()
+
+	var pp int
+	flag.IntVar(&pp, "pp", 0, "integer for process pair")
+	flag.Parse()
+
+	////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////// Process pair setup
+	processPairTx := communication.ProcessPairTx
+	processPairRx := communication.ProcessPairRx
+	go bcast.Transmitter(58997+pp, processPairTx)
+	go bcast.Receiver(58997+pp, processPairRx)
+
+	var processPairCount int = 0
+	fmt.Println("\nProcesspair: Starting as backup")
+
+	// Try to read from primary
+	for {
+		if processPairCount > 500 {
+			break
+		}
+		select {
+		case <- processPairRx:
+			processPairCount = 0
+		default:
+			time.Sleep(20*time.Millisecond)
+			processPairCount++
+		}
+	}
+	// Become primary, start a backup, and initialize the elevator
+	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
+
+	arg_pp := strconv.Itoa(pp)
+	/////// MAC
+	currentDir, _ := os.Getwd()
+	filename := currentDir+"/main.go"
+	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run ` + filename + ` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+	
+	 ////// WINDOWS
+	//  arg_pp := strconv.Itoa(pp)
+	//  exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
+
 
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
@@ -112,6 +159,9 @@ func main() {
 	fsm.InitCurrentElevators(config.N_ELEVATORS)
 	fsm.InitializeLights(fsm.CurrentElevStates)
 
+
+	go fsm.Lights()
+
 	//////////////////////////////////// Keeping track of peers
 	var currentPeers []string
 	var lostPeers []string
@@ -141,6 +191,7 @@ func main() {
 		select {
 
 		case a := <-drv_buttons:
+			fsm.Lights()
 			fsm.HandleButtonEvent(a, doorTimeOutAlert)
 
 		case b := <-drv_floors:
@@ -170,7 +221,8 @@ func main() {
                 if fsm.ElevState.Master {
                     for _, peers := range p.Lost {
                         fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-                        lostPeers = fsm.RemovePeer(lostPeers, peers)
+                        fsm.Lights()
+						lostPeers = fsm.RemovePeer(lostPeers, peers)
                     }
                 }
             }
@@ -208,36 +260,14 @@ func main() {
 				designatedElev := fsm.CurrentElevStates[index]
 				designatedElev.Requests[h.Button.Floor][h.Button.Button] = true
 				fsm.CurrentElevStates[index] = designatedElev
-
 				// Update states
 				for _, state := range fsm.CurrentElevStates {
 					statesUpdateTx <- state
 				}
-
 				// Confirm order
-				elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
+				
+				// elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
 			}
-
-		case o := <-clearOrderRx:
-			// First check integrity with checksum
-			if communication.ClearedOrdrMsgChecksumIsOk(o) {
-				// Then Accknowledge message
-				ackMsg := communication.AckMessage{
-					MsgId: 		o.Id,
-					MsgSender: 	o.MsgSender,
-				}
-				ackTx <- ackMsg
-			} else {
-				fmt.Println("Checksum failed from ClearedOrder message: ", o.Id)
-				continue
-			}
-//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
-			for _, state := range fsm.CurrentElevStates {
-				state.Requests[o.Floor][elevio.BT_HallUp] = false
-				state.Requests[o.Floor][elevio.BT_HallDown] = false
-			}
-			elevio.SetButtonLamp(elevio.BT_HallUp, o.Floor, false)
-			elevio.SetButtonLamp(elevio.BT_HallDown, o.Floor, false)
 
 		case s := <-statesUpdateRx:
 			fsm.HandleNewElevState(s)
@@ -264,10 +294,31 @@ func main() {
 			for i, elev := range fsm.CurrentElevStates {
 				if elev.Id == u.State.Id {
 					fsm.CurrentElevStates[i] = u.State
-					// currentRequests := fsm.CurrentElevStates[i].Requests // Duplicate in order to avoid mutation, probably redundant
-					// cabBackup.WriteOrdersToBackupFile(currentRequests)
 				}
 			}
+			fsm.Lights()
+		
+		case o := <-clearOrderRx:
+			// First check integrity with checksum
+			if communication.ClearedOrdrMsgChecksumIsOk(o) {
+				// Then Accknowledge message
+				ackMsg := communication.AckMessage{
+					MsgId: 		o.Id,
+					MsgSender: 	o.MsgSender,
+				}
+				ackTx <- ackMsg
+			} else {
+				fmt.Println("Checksum failed from ClearedOrder message: ", o.Id)
+				continue
+			}
+//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
+			for _, state := range fsm.CurrentElevStates {
+				state.Requests[o.Floor][elevio.BT_HallUp] = false
+				state.Requests[o.Floor][elevio.BT_HallDown] = false
+			}
+			fsm.Lights()
+			// elevio.SetButtonLamp(elevio.BT_HallUp, o.Floor, false)
+			// elevio.SetButtonLamp(elevio.BT_HallDown, o.Floor, false)
 
 		default:
 			// For the master
@@ -279,8 +330,9 @@ func main() {
 			// For the slave
 			masterCounter++
 			time.Sleep(20 * time.Millisecond)
+
+			// Sending alive message to the process pair backup
+			processPairTx <- "Alive"
 		}
-
 	}
-
 }

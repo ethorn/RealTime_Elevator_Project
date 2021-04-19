@@ -6,6 +6,7 @@ import (
 	"elevator_project/elevator"
 	"elevator_project/elevio"
 	"elevator_project/single_elev_requests"
+	"elevator_project/cabBackup"
 	"fmt"
 	"time"
 )
@@ -19,13 +20,15 @@ var timerActive bool
 var CurrentElevStates map[string]elevator.Elevator
 
 func InitElevator(id string) {
-	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
-	communication.SendStateUpdate(ElevState, ElevState.Id)
+	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle, Requests: cabBackup.ReadOrdersFromBackupFile(id)}
+	//? spør Eric hva denne er nyttig for
+	//communication.SendStateUpdate(ElevState, ElevState.Id) //OBS avviker litt fra min implementasjon
 }
 
 func OnInitBetweenFloors(id string) {
 	ElevState.Behaviour = elevator.EB_Moving
 	ElevState.Dir = elevio.MD_Down
+	ElevState.Requests = cabBackup.ReadOrdersFromBackupFile(id)  //OBS avviker litt fra min implementasjon
 	elevio.SetMotorDirection(ElevState.Dir)
 }
 
@@ -49,6 +52,7 @@ func InitializeLights(CurrentElevStates map[string]elevator.Elevator) {
 	}
 }
 
+// TODO: SetAllLights?
 func UpdateLights(s elevator.Elevator) {
 	for i, call := range s.Requests {
 		if call[0] {
@@ -77,7 +81,7 @@ func HandleAcknowledgeMsg(ackRx chan communication.AckMessage) {
 }
 
 func HandleNewElevState(s elevator.Elevator) {
-	fmt.Println("--Got new state and updating lights")
+//	fmt.Println("--Got new state and updating lights")
 	UpdateLights(s)
 	// Update the states of the other elevators
 	for i, elev := range CurrentElevStates {
@@ -105,6 +109,7 @@ func HandleNewElevState(s elevator.Elevator) {
 				ElevState.Requests[ElevState.Floor][btn] = false
 			}
 			communication.SendClearedOrder(ElevState.Floor, ElevState.Id)
+			elevio.SetButtonLamp(elevio.BT_Cab, ElevState.Floor, false)
 		} else {
 			if ElevState.Behaviour == elevator.EB_DoorOpen {
 				// Return and let the elevator handler new requests as the door closes.
@@ -207,7 +212,7 @@ func HandleNewFloor(floor int, numFloors int) {
 	elevio.SetFloorIndicator(ElevState.Floor)
 
 	switch ElevState.Behaviour {
-	case elevator.EB_Moving:
+	case elevator.EB_Moving:			 // TODO hvis det fremdeles forblir kun én relevant case burde denne og de to følgende kodelinjene ryddes opp i
 		if single_elev_requests.ShouldStop(ElevState) {
 			// Stop the elevator and open the door
 			elevio.SetMotorDirection(elevio.MD_Stop)
@@ -253,11 +258,21 @@ func HandleChangeInStopBtn(d bool, numFloors int) {
 	// if stop button is pressed, print it
 	// then un-light all button lamps
 	// TODO: choose ourselves
-	// TODO bare minimum set the stop light
+	// TODO må sette stopplyset i det minste
 	fmt.Println("Stop button pressed?", "%+v\n", d)
 	for f := 0; f < numFloors; f++ {
 		for b := elevio.ButtonType(0); b < 3; b++ { // initializes b to 0 (ButtonType is int)
 			elevio.SetButtonLamp(b, f, false)
 		}
 	}
+}
+
+func RemovePeer(PeerList []string, peer string) []string {
+    var UpdatedPeers []string
+    for _, oldpeer := range PeerList {
+        if oldpeer != peer {
+            UpdatedPeers = append(UpdatedPeers, oldpeer)
+        }
+    }
+    return UpdatedPeers
 }

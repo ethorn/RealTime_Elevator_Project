@@ -8,6 +8,7 @@ import (
 	"elevator_project/network/localip"
 	"elevator_project/network/peers"
 	"elevator_project/order_logic"
+	"elevator_project/cabBackup"
 	"elevator_project/config"
 	"flag"
 	"fmt"
@@ -98,6 +99,9 @@ func main() {
 	go elevio.PollStopButton(drv_stop)
 	go fsm.PollTimer(doorTimeOutAlert)
 
+	//////////////////////////////////// Initialize cab backup module
+	cabBackup.Init(id)	
+
 	//////////////////////////////////// Initialize elevator
 	
 	if elevio.GetFloor() == -1 {
@@ -165,34 +169,19 @@ func main() {
             unservicablePeers = p.Lost
 
             //Handle disconnected elevator as master
-            if len(p.Lost) > 0 {
+			if len(p.Lost) > 0 {
                 if fsm.ElevState.Master {
                     for _, peers := range p.Lost {
-                        order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-
+                        fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
+                        lostPeers = fsm.RemovePeer(lostPeers, peers)
                     }
                 }
             }
 
-            // Update states
-            fmt.Print(lostPeers)
-            if len(p.New) > 0 && len(lostPeers) > 0 {
-                if fsm.ElevState.Master {
-                    for _, peer := range lostPeers {
-                        if len(lostPeers) == 1 {
-                            lostPeers = nil
-                        } else {
-                            lostPeers = lostPeers[2:]
-                        }
-                        fmt.Print("Updated cab calls of elevator", peer, "\n")
-                    }
-                    for _, state := range fsm.CurrentElevStates {
-						if state.Floor != -1 {
-							statesUpdateTx <- state
-						}
-                    }
-                }
-            }
+			if len(p.New) > 0 && id == p.New {
+				state := fsm.ElevState // Duplicate in order to avoid mutation
+				statesUpdateTx <- state
+			}
 
 		case <-masterRx:
 			masterCounter = 0
@@ -245,7 +234,7 @@ func main() {
 				fmt.Println("Checksum failed from ClearedOrder message: ", o.Id)
 				continue
 			}
-			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
+//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
 			for _, state := range fsm.CurrentElevStates {
 				state.Requests[o.Floor][elevio.BT_HallUp] = false
 				state.Requests[o.Floor][elevio.BT_HallDown] = false
@@ -271,12 +260,15 @@ func main() {
 			}
 
 			if fsm.ElevState.Id == u.State.Id {
+				cabBackup.WriteOrdersToBackupFile(u.State.Requests)
 				continue
 			}
 
 			for i, elev := range fsm.CurrentElevStates {
 				if elev.Id == u.State.Id {
 					fsm.CurrentElevStates[i] = u.State
+					// currentRequests := fsm.CurrentElevStates[i].Requests // Duplicate in order to avoid mutation, probably redundant
+					// cabBackup.WriteOrdersToBackupFile(currentRequests)
 				}
 			}
 

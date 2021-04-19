@@ -9,30 +9,29 @@ var PeerUpdateCh chan peers.PeerUpdate = make(chan peers.PeerUpdate)
 var PeerTxEnable chan bool = make(chan bool)
 
 // make channels for sending and receiving our custom data types
-var StateMsgTx chan elevator.Elevator = make(chan elevator.Elevator)
-var StateMsgRx chan elevator.Elevator = make(chan elevator.Elevator)
+// StateMessage is declared in communication.go
+var StateMsgTx chan StateMessage = make(chan StateMessage)
+var StateMsgRx chan StateMessage = make(chan StateMessage)
 
 // Make channels for sending and receiving states which should update the slave states
 var StatesUpdateTx chan elevator.Elevator = make(chan elevator.Elevator)
 var StatesUpdateRx chan elevator.Elevator = make(chan elevator.Elevator)
 
-// Nvm
-// Channel for receiving one StateMsg, used for selecting the newest master
-// Make channel for transmitting current peers
-//var UpdatedPeerStateRx chan elevator.Elevator = make(chan elevator.Elevator)
-
 // Make channels for sending/receiving hall requests
-var HallTx chan ButtonMessage = make(chan ButtonMessage)
-var HallRx chan ButtonMessage = make(chan ButtonMessage)
+var HallTx chan HallReqMessage = make(chan HallReqMessage)
+var HallRx chan HallReqMessage = make(chan HallReqMessage)
 
-// Make channels for acknowledgements
+// Make channels for sending and receiving acknowledgements between elevators
 var AckTx chan AckMessage = make(chan AckMessage)
 var AckRx chan AckMessage = make(chan AckMessage)
+
+// Internal acknowledge channel
+var AcknowledgeChan chan AckMessage = make(chan AckMessage)
 
 // Make channels for sending/recieving Master/Slave messages
 var MasterTx chan string = make(chan string, 1)
 var MasterRx chan string = make(chan string, 1)
 
 // Make channels for sending/recieving Order Updates
-var ClearOrderTx chan int = make(chan int)
-var ClearOrderRx chan int = make(chan int)
+var ClearOrderTx chan ClearedOrderMessage = make(chan ClearedOrderMessage)
+var ClearOrderRx chan ClearedOrderMessage = make(chan ClearedOrderMessage)

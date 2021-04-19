@@ -13,15 +13,12 @@ const (
 	EB_Moving                     = 1
 )
 
-//? Kan man sette default-verdier, f.eks. Id null?
 type Elevator struct {
 	Id        string
 	Master    bool
 	Floor     int
 	Dir       elevio.MotorDirection
 	Behaviour ElevatorBehaviour
-	Requests  [4][3]bool //  N_FLOORS, N_BUTTONS
+	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
 	Config    config.Config
-	// Obstruction?
-	// Stop button?
 }

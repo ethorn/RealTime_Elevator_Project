@@ -23,8 +23,6 @@ func ShouldStop(e elevator.Elevator) bool {
 }
 
 func ChooseDirection(e elevator.Elevator) elevio.MotorDirection {
-	// Need to continue in the direction it was going, if there are any orders in that direction left
-
 	switch e.Dir {
 	case elevio.MD_Up:
 		if Requests_above(e) {
@@ -53,6 +51,15 @@ func ChooseDirection(e elevator.Elevator) elevio.MotorDirection {
 	default:
 		return elevio.MD_Stop
 	}
+}
+
+func Requests_current_floor(e elevator.Elevator) bool {
+	for btn := 0; btn < config.N_BUTTONS; btn++ {
+		if e.Requests[e.Floor][btn] {
+			return true
+		}
+	}
+	return false
 }
 
 func Requests_above(e elevator.Elevator) bool {

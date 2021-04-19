@@ -1,13 +1,13 @@
 Elevator Project
 ================
 
-Summary (må reformuleres, men fikser det)
--------
+Summary 
+=========
 Create software for controlling `n` elevators working in parallel across `m` floors.
 
 
 Brief walkthrough of our setup
--------
+========
 We've gone with a master-slave network topology. Tne elevator always initially starts as a slave, but if no messages are received from the master within 6 seconds, one the connected slaves take over as the master. As evident by the single for-select loop inside the main function, most of the processes are the same regardless of hierachical status, but for the processes where the master-slave status does matter, the work is divided into two.
 
 Single elevator mode is the natural way of operating. The difference becomes when a master sends new orders and when new orders are sent to others.
@@ -24,3 +24,12 @@ Single elevator mode is the natural way of operating. The difference becomes whe
 		* as the internal elevator gets a new state, it sends the new state to the master,
 		which sends back an updated requests list (which includes cab requests)
 		How to complete requests?
+
+
+The different packages
+============
+The network package: Nothing has been adjusted in this package, we're running with a UDP
+
+Communication between goroutines is through channels, while communication between elevators is through UDP broadcasting. When passing messages, acknowledgements are used to handle lost, corrupt, or multiple messages between elevators (TODO: blir vel feil å si multiple?)
+
+

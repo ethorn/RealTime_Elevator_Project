@@ -172,6 +172,7 @@ func confirmAcknowledge(msg interface{}, channel interface{}, maxAckToSend int, 
 	}
 }
 
+// TODO endre navn
 //////////////// MESSAGE SENDERS
 func SendStateUpdate(e elevator.Elevator, senderId string) {
 	msg := StateMessage{

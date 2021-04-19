@@ -44,13 +44,29 @@ func main() {
 		id = fmt.Sprintf("peer-%s-%d", localIP, os.Getpid())
 	}
 
-	//////////////////////////////////// Initialize elevator
-	fsm.InitElevator(id)
-	if elevio.GetFloor() == -1 {
-		fsm.OnInitBetweenFloors(id)
-	}
+	//////////////////////////////////// If we are initializing between floors
+//? Hvordan funker det med importering av pakker - kjører denne etter fsm.init()?
+//? Jeg får feil hvis jeg bruker denne nå?
+	initialFloor := elevio.GetFloor()
+	if initialFloor == -1 {
+		fsm.OnInitBetweenFloors()
+	}  else {
+		fsm.InitElevator()
+	} //TODO vurdere om evt. skal benyttes
 
 	fsm.InitCurrentElevators(config.N_ELEVATORS)
+    // Anders' implementasjon
+	// {
+    //     floor := GetFloor()
+    //     if floor == -1 {
+    //         e.Dirn = MD_Down
+    //         e.Behavior = EB_Moving
+    //         move <- e.Dirn
+    //     } else {
+    //         e.Floor = floor
+    //         e.Behavior = EB_Idle
+    //     }
+    // }
 
 	/////////////////////////////////// Wipe lights
 	fsm.InitializeLights(fsm.CurrentElevStates)
@@ -109,7 +125,27 @@ func main() {
 	go elevio.PollStopButton(drv_stop)
 	go fsm.PollTimer(doorTimeOutAlert)
 
-	fsm.ElevState.Master = false // Denne er overflødig
+	/*
+		How to implement "single elevator mode?"
+		That is the natural way of operating
+		The difference becomes when a master sends new orders
+		and when new orders are sent to others
+		How should elevators work while they have their own requests list?
+		* internal chooseDirection algorithm
+		* new cab call is added to internal requests state (and handled by internal chooseDir algo)
+		* should serve cab calls when elevator is disconnected
+		* This new cab call gets sent to others through updated state
+		* new hall call is sent to master (with acks)
+		if the master got the hall request, he checks if he is connected
+		* Master then takes the hall request -> blackbox -> generates new requests for everyone. -> Send them
+		Master always have the latest states of everyone, because they always send their state
+		* should not serve hall requests when elev is disconnected
+		* as the internal elevator gets a new state, it sends the new state to the master,
+		which sends back an updated requests list (which includes cab requests)
+		How to complete requests?
+	*/
+
+	fsm.ElevState.Master = false
 	fmt.Println("Starting as slave...")
 	masterCounter := 0
 	// A peers variable with ID's of everyone connected
@@ -207,21 +243,13 @@ func main() {
 				// Designate order
 				fmt.Println("Unservicable peers: ", unservicablePeers)
 				index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button, unservicablePeers)
-				fmt.Println(index)
-				designatedElev := fsm.CurrentElevStates[index]
-				// fmt.Println(designatedElev)
-				designatedElev.Requests[h.Button.Floor][h.Button.Button] = true
-				fmt.Println(designatedElev.Requests)
-				fmt.Println("----")
-				fmt.Println(designatedElev)
-				fmt.Println("----")
-				fsm.CurrentElevStates[index] = designatedElev
+				designatedelev := fsm.CurrentElevStates[index]
+				designatedelev.Requests[h.Button.Floor][h.Button.Button] = true
+				fsm.CurrentElevStates[index] = designatedelev
 
 				// Update states
 				for _, state := range fsm.CurrentElevStates {
 					statesUpdateTx <- state
-					fmt.Println("Sent state update:")
-					fmt.Println(state)
 				}
 
 				// Confirm order

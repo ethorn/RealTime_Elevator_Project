@@ -18,24 +18,36 @@ var timerEndTime time.Time
 var timerActive bool
 var CurrentElevStates map[string]elevator.Elevator
 
-func InitElevator(id string) {
-	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+//! Flyttet over til main for bedre lesbarhet
+// func init() {
+// 	initElevator()
+// 	initCurrentElevators(config.N_ELEVATORS)
+// }
+
+//?? Hvorfor er Id "null"?
+func InitElevator() {
+	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
 }
 
-func OnInitBetweenFloors(id string) {
-	ElevState.Behaviour = elevator.EB_Moving
-	ElevState.Dir = elevio.MD_Down
-	elevio.SetMotorDirection(ElevState.Dir)
+//? Nødvendig med alt som er inni denne Init-en?
+func OnInitBetweenFloors() {
+	// outputDevice.motorDirection(D_Down);
+	// elevator.dirn = D_Down;
+	// elevator.behaviour = EB_Moving
+	//Måtte sette Floor = 0 for ikke å få panic: runtime error: index out of range [-1]
+	ElevState = elevator.Elevator{Id: "null", Master: false, Floor: -1, Dir: elevio.MD_Down, Behaviour: elevator.EB_Moving}
+	//ElevState.Dir = elevio.MD_Down //? Hvorfor måtte jeg ikke ha denne med for at det skulle funke?
+	elevio.SetMotorDirection(elevio.MD_Down)
+	//fmt.Println("Should stop? ", single_elev_requests.ShouldStop(ElevState))
 }
 
+//? Hvorfor Floor: 0?
 func InitCurrentElevators(N_ELEVATORS int) {
-	 // rename to AllElevStates?
-	 CurrentElevStates = make(map[string]elevator.Elevator)	
+	CurrentElevStates = make(map[string]elevator.Elevator)
 	elevatorNames := []string{"one", "two", "three", "four", "five"}
 	for i := 0; i < N_ELEVATORS; i++ {
-		CurrentElevStates[elevatorNames[i]] = elevator.Elevator{Id: elevatorNames[i], Master: false, Floor: -1, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
+		CurrentElevStates[elevatorNames[i]] = elevator.Elevator{Id: elevatorNames[i], Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
 	}
-	CurrentElevStates[ElevState.Id] = ElevState
 }
 
 
@@ -85,12 +97,9 @@ func HandleNewElevState(s elevator.Elevator) {
 			CurrentElevStates[i] = s
 		}
 	}
-
 	if ElevState.Id == s.Id {
 		ElevState = s
-		fmt.Println("I MATCHED new state:")
-		fmt.Println(s)
-		// stuff, TODO: check this func - Seems fine?
+		// stuff, TODO: check this func
 		ElevState.Dir = single_elev_requests.ChooseDirection(ElevState)
 		elevio.SetMotorDirection(ElevState.Dir)
 		if ElevState.Dir != elevio.MD_Stop {
@@ -102,7 +111,9 @@ func HandleNewElevState(s elevator.Elevator) {
 			communication.SendClearedOrder(ElevState.Floor)
 		}
 		communication.SendStateUpdate(ElevState)
+
 	}
+
 }
 
 // Handle functions

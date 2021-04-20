@@ -4,10 +4,11 @@ import (
 	"elevator_project/elevator"
 	"elevator_project/network/peers"
 )
-
+// Make channels for handling the process pair communication
 var ProcessPairTx chan string = make(chan string)
 var ProcessPairRx chan string = make(chan string)
 
+// Make channels for handling peer connection updates
 var PeerUpdateCh chan peers.PeerUpdate = make(chan peers.PeerUpdate)
 var PeerTxEnable chan bool = make(chan bool)
 

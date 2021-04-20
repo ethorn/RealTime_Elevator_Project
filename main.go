@@ -63,8 +63,6 @@ func main() {
 	filename := "main.go"
 	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
 	err := cmd.Run()
-	// cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
-	// err := cmd.Run()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -73,8 +71,9 @@ func main() {
 	// arg_pp := strconv.Itoa(pp)
 
 	// funker ikke for meg - marcus
-	// exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
-
+	exec.Command("cmd", "/C", "start", "powershell", "go", "run", `"main.go --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`).Run()
+	exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
+	// err := exec.Command("cmd", "/C", "start", "powershell", "go", "run", `"pheonix.go"`).Run()
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
 	fsm.ElevState.Id = id
@@ -161,8 +160,6 @@ func main() {
 	fsm.InitCurrentElevators(config.N_ELEVATORS)
 	fsm.InitializeLights(fsm.CurrentElevStates)
 
-	go fsm.Lights()
-
 	//////////////////////////////////// Keeping track of peers
 	var currentPeers []string
 	var lostPeers []string
@@ -171,9 +168,8 @@ func main() {
 	fmt.Println("Starting as slave...")
 	masterCounter := 0
 	for {
-		// TODO forklar hvorfor er utenfor for-selecten
-		// Check if master in each handler function
-		if masterCounter > 300 { // break if no master message in 6 seconds
+		// break if no master message in 6 seconds
+		if masterCounter > 300 { 
 			if id == currentPeers[0] {
 				fmt.Println("\n... Becoming master\n")
 				fsm.ElevState.Master = true
@@ -191,7 +187,6 @@ func main() {
 		select {
 
 		case a := <-drv_buttons:
-			fsm.Lights()
 			fsm.HandleButtonEvent(a, doorTimeOutAlert)
 
 		case b := <-drv_floors:
@@ -200,14 +195,14 @@ func main() {
 		case c := <-drv_obstr:
 			fsm.HandleChangeInObstruction(c)
 
-		case d := <-drv_stop:
-			fsm.HandleChangeInStopBtn(d, config.N_FLOORS)
+		case <-drv_stop:
 
 		case e := <-doorTimeOutAlert:
 			fsm.HandleDoorTimeOut(e)
 			fsm.Timer_stop()
 
 		case p := <-peerUpdateCh:
+			fsm.HandlePeerUpdate(p)
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			currentPeers = p.Peers
@@ -227,8 +222,8 @@ func main() {
 						fsm.CurrentElevStates[peers] = tempState
 						time.Sleep(100 * time.Millisecond)
 						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
-						fsm.Lights()
 						lostPeers = fsm.RemovePeer(lostPeers, peers)
+						fsm.UpdateAllLights()
 					}
 				}
 			}
@@ -242,7 +237,6 @@ func main() {
 			masterCounter = 0
 
 		case h := <-hallRx:
-			// Only the master handles elevator orders
 			if fsm.ElevState.Master {
 				// First check integrity with checksum
 				if communication.BtnMsgChecksumIsOk(h) {
@@ -257,7 +251,7 @@ func main() {
 					continue
 				}
 
-				// Update with masters current state
+				// Update CurrentElevStates with masters current state 
 				fsm.CurrentElevStates[fsm.ElevState.Id] = fsm.ElevState
 
 				// Update current Unservicable Peers
@@ -278,18 +272,14 @@ func main() {
 				for _, state := range fsm.CurrentElevStates {
 					statesUpdateTx <- state
 				}
-				// Confirm order
-
-				// elevio.SetButtonLamp(h.Button.Button, h.Button.Floor, true)
 			}
 
 		case s := <-statesUpdateRx:
 			fsm.HandleNewElevState(s)
 
 		case u := <-stateMsgRx:
-			// First check integrity with checksum
 			if communication.StateMsgChecksumIsOk(u) {
-				// Then ccknowledge message
+				// send acknowledge message
 				ackMsg := communication.AckMessage{
 					MsgId:     u.Id,
 					MsgSender: u.MsgSender,
@@ -310,10 +300,9 @@ func main() {
 					fsm.CurrentElevStates[i] = u.State
 				}
 			}
-			fsm.Lights()
+			fsm.UpdateAllLights()
 
 		case o := <-clearOrderRx:
-			// First check integrity with checksum
 			if communication.ClearedOrdrMsgChecksumIsOk(o) {
 				// Then Accknowledge message
 				ackMsg := communication.AckMessage{
@@ -325,14 +314,11 @@ func main() {
 				fmt.Println("Checksum failed from ClearedOrder message: ", o.Id)
 				continue
 			}
-			//			fmt.Println("-- Received confirmation of order and turning off lamp: ", o.Id)
 			for _, state := range fsm.CurrentElevStates {
 				state.Requests[o.Floor][elevio.BT_HallUp] = false
 				state.Requests[o.Floor][elevio.BT_HallDown] = false
 			}
-			fsm.Lights()
-			// elevio.SetButtonLamp(elevio.BT_HallUp, o.Floor, false)
-			// elevio.SetButtonLamp(elevio.BT_HallDown, o.Floor, false)
+			fsm.UpdateAllLights()
 
 		default:
 			// For the master

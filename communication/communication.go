@@ -172,9 +172,8 @@ func confirmAcknowledge(msg interface{}, channel interface{}, maxAckToSend int, 
 	}
 }
 
-// TODO endre navn
 //////////////// MESSAGE SENDERS
-func SendStateUpdate(e elevator.Elevator, senderId string) {
+func SendStateMsg(e elevator.Elevator, senderId string) {
 	msg := StateMessage{
 		Id: 		createId(),
 		Checksum: 	createStateChecksum(e),
@@ -186,7 +185,7 @@ func SendStateUpdate(e elevator.Elevator, senderId string) {
 
 	// Define max number of acknowledgements to send before aborting (and losing the message)
 	// And define what to start the counter at (how many acknowledges that has been sent)
-	maxAckToSend := config.MAX_ACKNOWLEDGES_TO_SEND_StateUpdate
+	maxAckToSend := config.MAX_ACKNOWLEDGES_TO_SEND_StateMsg
 	ackSentCount := 0
 	go confirmAcknowledge(msg, StateMsgTx, maxAckToSend, ackSentCount)
 }

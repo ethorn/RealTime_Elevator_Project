@@ -34,7 +34,7 @@ func ReadOrdersFromBackupFile(id string) [4][3]bool {
 	}
 
 	//Nyttig for debugging purposes
-	fmt.Println("This is what genericCabList looks like after restoration:", genericCabList,"\n")// This is what buf looks like:", buf[:n], "\n")
+	// fmt.Println("This is what genericCabList looks like after restoration:", genericCabList,"\n")// This is what buf looks like:", buf[:n], "\n")
 	return genericCabList
 }
 
@@ -49,7 +49,6 @@ func WriteOrdersToBackupFile(requests [4][3]bool) {
 	if err != nil {
 		fmt.Println("Cab file writing write error: ", err)
 	}
-	// fmt.Println("the value of n is: ", n) // Nyttig for debugging purposes
 
 	file.Truncate(int64(n))
 	if err != nil {

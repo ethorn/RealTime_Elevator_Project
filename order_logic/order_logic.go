@@ -12,7 +12,7 @@ import (
 func Requests_clearAtCurrentFloor(e_old elevator.Elevator) elevator.Elevator {
 	e := e_old
 	for btn := 0; btn < config.N_BUTTONS; btn++ {
-		if e.Requests[e.Floor][btn] == true {
+		if e.Requests[e.Floor][btn] {
 			e.Requests[e.Floor][btn] = false
 		}
 	}
@@ -22,32 +22,27 @@ func Requests_clearAtCurrentFloor(e_old elevator.Elevator) elevator.Elevator {
 		for btn := 0; btn < config.N_BUTTONS; btn++ {
 			e.Requests[e.Floor][btn] = false
 		}
-		break
 
 	case config.CV_InDir:
 		e.Requests[e.Floor][elevio.BT_Cab] = false
 		switch e.Dir {
 		case elevio.MD_Up:
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
-			if single_elev_requests.Requests_above(e) == false {
+			if single_elev_requests.Requests_above(e) {
 				e.Requests[e.Floor][elevio.BT_HallDown] = false
 			}
-			break
 
 		case elevio.MD_Down:
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
-			if single_elev_requests.Requests_below(e) == false {
+			if single_elev_requests.Requests_below(e) {
 				e.Requests[e.Floor][elevio.BT_HallUp] = false
 			}
-			break
 
 		case elevio.MD_Stop:
 		default:
 			e.Requests[e.Floor][elevio.BT_HallUp] = false
 			e.Requests[e.Floor][elevio.BT_HallDown] = false
-			break
 		}
-		break
 
 	default:
 		break
@@ -65,7 +60,6 @@ func TimeToIdle(e elevator.Elevator) int {
 		if e.Dir == elevio.MD_Stop {
 			return duration
 		}
-		break
 	case elevator.EB_Moving:
 		duration = duration + config.TRAVEL_TIME/2
 		if e.Dir == elevio.MD_Up {
@@ -74,7 +68,6 @@ func TimeToIdle(e elevator.Elevator) int {
 		if e.Dir == elevio.MD_Down {
 			e.Floor = e.Floor - 1
 		}
-		break
 	case elevator.EB_DoorOpen:
 		duration = config.DOOR_OPEN_TIME/2 - duration
 	}
@@ -130,7 +123,7 @@ func DesignateOrder(CurrentElevStates map[string]elevator.Elevator, order elevio
 		}
 	}
 	fmt.Println("New request assigned to elevator", elevatorcostid[index])
-	return elevatorcostid[index] //Check this
+	return elevatorcostid[index]
 }
 
 func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string, senderId string) map[string]elevator.Elevator {
@@ -145,7 +138,7 @@ func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer
 					CurrentElevStates[id] = removedElev
 				}
 				if elev.Requests[j][1] {
-					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
+					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown}
 					communication.SendNewHallRequest(tempbtn, senderId)
 					removedElev := CurrentElevStates[id]
 					removedElev.Requests[j][1] = false

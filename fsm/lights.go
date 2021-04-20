@@ -3,12 +3,9 @@ package fsm
 import (
 	"elevator_project/config"
 	"elevator_project/elevio"
-	"time"
 )
 
-
-// TODO: implementer å kjøre denne kun når nye states
-func Lights() {
+func UpdateAllLights() {
 	var HasHallDownRequests map[int]bool = make(map[int]bool)
 	var HasHallUpRequests map[int]bool = make(map[int]bool)
 	for f := 0; f < config.N_FLOORS; f++ {
@@ -31,5 +28,4 @@ func Lights() {
 		elevio.SetButtonLamp(elevio.BT_HallUp, f, HasHallUpRequests[f])
 		elevio.SetButtonLamp(elevio.BT_Cab, f, ElevState.Requests[f][elevio.BT_Cab])
 	}
-	time.Sleep(20*time.Millisecond)
 }

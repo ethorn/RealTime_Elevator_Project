@@ -16,14 +16,13 @@ We have a master-slave network topology. An elevator always initially starts as 
 
 In single elevator mode, each elevator has their own requests list. Any new cab call in the elevator is added to the internal request list and handled by an internal Choose Direction algorithm. The way single elevator mode is implemented, it should serve cab calls even when the elevator is disconnected.Information on new cab calls is sent to other elevators through an updated elevator state message, which naturally contains the updated internal request list. In single elevator mode, an elevator is free to reject hall orders (quoting Anders Pettersen's confirmation on Discord's general channel April 19, 7:28 PM)
 
-New hall calls are sent to the master, and it's the master that distributes all hall orders. If the master receives a hall request, it checks if it is connected. Master then takes the hall request and sends it to the order logic module, which generates a new request for an elevator, thereafter sending it to the relevant elevator (TODO teknisk sett til alle?). Order logic is the module that connects all the order logic for the different elevators together, including clearing requests, designating orders and redistributing orders.
+New hall calls are sent to the master, and it's the master that distributes all hall orders. If the master receives a hall request, it checks if it is connected. Master then takes the hall request and sends it to the order logic module, which generates a new request for an elevator, thereafter sending it to the relevant elevator and updating the others for backup purposes). Order logic is the module that connects all the order logic for the different elevators together, including clearing requests, designating orders and redistributing orders.
 
 The master always has the latest states of every elevator, because they always send their state to the master. Hall calls are only distributed to connected elevators, and when an elevator is disconnected all of the disconnected elevator's hall orders are redistributed among the still connected peers through the order logic module. 
 
 Since cab calls are handled internally for each elevator, they are stored locally on a file. Any uncompleted cab orders for an elevator elevator upon (re)initialisation are retrieved upon initialisation from a back up file of the cab orders. This file constantly contains a an updated list of remaining cab orders. Hall orders automatically do not become saved to the finalised file because as mentioned in the previous paragraph the hall orders are instantly redistributed upon the remaining connected elevators. The list of uncompleted cab orders inside the file is constantly up to date since every time a new state message is received, this list is written to the back up file. 
 
-TODO: dobbeltsjekk dette:
-In the case of obstruction in an elevator, the elevator is immediately registered as a "lost", i.e. disconnected elevator) and its hall orders are instantly redistributed, and the elevator program is registered as stuck. It may receive hall orders, but these are immediately redistributed to the other elevators that are actually. connected. If the elevator remains stuck over a longer time period, the elevator is forced to reset through the process pair method we've implemented.
+In the case of obstruction in an elevator, the elevator is registered as "stuck" after 10 seconds, i.e. disconnected elevator) and its hall orders are redistributed at this point.  It may receive hall orders, but these are redistributed to the other elevators that are actually connected after "stuck" is set. 
 
 The stop button is completely neglected, per specification allowances.
 
@@ -31,7 +30,7 @@ The stop button is completely neglected, per specification allowances.
 The different packages
 -----------
 Elevator: 
-Basically a single struct containing information for an indiviual elevato, the code should speak for itself hopefully. TODO: nevne dette?: inherits states from ElevatorStates | passes states to ElevatorStates
+Basically a single struct containing information for an indiviual elevator, the code should speak for itself hopefully. 
 
 Single elevator requests:
 Functionality for single elevator mode.
@@ -46,7 +45,7 @@ Elevator I/O (elevio):
 The elevator driver, handles input/output for buttons, lights, the door and the elevator motor. Contains no new functionality package from the provided one.
 
 Network: 
-Nothing has been adjusted in this package from the provided one. Communication between goroutines is through channels, while communication between elevators is through UDP broadcasting. When passing messages, acknowledgements are used to handle lost, corrupt, or multiple messages between elevators (TODO: blir vel feil å si multiple?)
+Nothing has been adjusted in this package from the provided one. Communication between goroutines is through channels, while communication between elevators is through UDP broadcasting. When passing messages, acknowledgements are used to handle lost or corrupt.
 
 Communication:
 Contains functions for sending information through , for instance state updates, hall requests and cleared order. all acknowledgement implementation is implemented in this package, besides a acknowledge message handler in the fsm package.

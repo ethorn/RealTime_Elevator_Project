@@ -5,6 +5,9 @@ import (
 	"elevator_project/network/peers"
 )
 
+var ProcessPairTx chan string = make(chan string)
+var ProcessPairRx chan string = make(chan string)
+
 var PeerUpdateCh chan peers.PeerUpdate = make(chan peers.PeerUpdate)
 var PeerTxEnable chan bool = make(chan bool)
 

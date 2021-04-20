@@ -21,4 +21,5 @@ type Elevator struct {
 	Behaviour ElevatorBehaviour
 	Requests  [config.N_FLOORS][config.N_BUTTONS]bool
 	Config    config.Config
+	Stuck     bool
 }

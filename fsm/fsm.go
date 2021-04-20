@@ -1,12 +1,13 @@
 package fsm
 
 import (
+	"elevator_project/cabBackup"
 	"elevator_project/communication"
 	"elevator_project/config"
 	"elevator_project/elevator"
 	"elevator_project/elevio"
+	"elevator_project/order_logic"
 	"elevator_project/single_elev_requests"
-	"elevator_project/cabBackup"
 	"fmt"
 	"time"
 )
@@ -18,9 +19,11 @@ var ElevState elevator.Elevator
 var timerEndTime time.Time
 var timerActive bool
 var CurrentElevStates map[string]elevator.Elevator
+var UnservicablePeers []string
+var ObstructionTimer *time.Timer
 
 func InitElevator(id string) {
-	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle, Requests: cabBackup.ReadOrdersFromBackupFile(id)}
+	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle, Requests: cabBackup.ReadOrdersFromBackupFile(id), Stuck: false}
 	//? spør Eric hva denne er nyttig for
 	//communication.SendStateUpdate(ElevState, ElevState.Id) //OBS avviker litt fra min implementasjon
 }
@@ -28,14 +31,14 @@ func InitElevator(id string) {
 func OnInitBetweenFloors(id string) {
 	ElevState.Behaviour = elevator.EB_Moving
 	ElevState.Dir = elevio.MD_Down
-	ElevState.Requests = cabBackup.ReadOrdersFromBackupFile(id)  //OBS avviker litt fra min implementasjon
+	ElevState.Requests = cabBackup.ReadOrdersFromBackupFile(id) //OBS avviker litt fra min implementasjon
 	elevio.SetMotorDirection(ElevState.Dir)
 }
 
 //? Hvorfor Floor: 0?
 func InitCurrentElevators(N_ELEVATORS int) {
 	// rename to AllElevStates?
-	CurrentElevStates = make(map[string]elevator.Elevator)	
+	CurrentElevStates = make(map[string]elevator.Elevator)
 	elevatorNames := []string{"one", "two", "three", "four", "five"}
 	for i := 0; i < N_ELEVATORS; i++ {
 		CurrentElevStates[elevatorNames[i]] = elevator.Elevator{Id: elevatorNames[i], Master: false, Floor: 0, Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle}
@@ -69,10 +72,20 @@ func UpdateLights(s elevator.Elevator) {
 	}
 }
 
+func RedistributeToActivePeers() {
+	fmt.Println("Elevator has been stuck for too long, redistributing")
+	ElevState.Stuck = true
+	communication.SendStateUpdate(ElevState, ElevState.Id)
+	time.Sleep(100 * time.Millisecond)
+	CurrentElevStates = order_logic.RedistributeOrders(CurrentElevStates, ElevState.Id, ElevState.Id)
+	ElevState = CurrentElevStates[ElevState.Id]
+	communication.SendStateUpdate(ElevState, ElevState.Id)
+}
+
 func HandleAcknowledgeMsg(ackRx chan communication.AckMessage) {
 	for {
 		select {
-		case ackMsg := <- ackRx:
+		case ackMsg := <-ackRx:
 			if ackMsg.MsgSender == ElevState.Id {
 				communication.AckReceivedList.PushBack(ackMsg.MsgId)
 			}
@@ -81,11 +94,10 @@ func HandleAcknowledgeMsg(ackRx chan communication.AckMessage) {
 }
 
 func HandleNewElevState(s elevator.Elevator) {
-//	fmt.Println("--Got new state and updating lights")
 	UpdateLights(s)
 	// Update the states of the other elevators
 	for i, elev := range CurrentElevStates {
-		if elev.Id == s.Id &&  ElevState.Id != s.Id{
+		if elev.Id == s.Id && ElevState.Id != s.Id {
 			CurrentElevStates[i] = s
 		}
 	}
@@ -103,13 +115,15 @@ func HandleNewElevState(s elevator.Elevator) {
 			elevio.SetDoorOpenLamp(true)
 			timer_start()
 			fmt.Println("Opening door")
-			fmt.Println(ElevState)
 			ElevState.Behaviour = elevator.EB_DoorOpen
 			for btn := elevio.ButtonType(0); btn < config.N_BUTTONS; btn++ {
 				ElevState.Requests[ElevState.Floor][btn] = false
 			}
+			CurrentElevStates[ElevState.Id] = ElevState
+
+			time.Sleep(100 * time.Millisecond) // TODO: HA DENNE?
 			communication.SendClearedOrder(ElevState.Floor, ElevState.Id)
-			elevio.SetButtonLamp(elevio.BT_Cab, ElevState.Floor, false)
+			// elevio.SetButtonLamp(elevio.BT_Cab, ElevState.Floor, false)
 		} else {
 			if ElevState.Behaviour == elevator.EB_DoorOpen {
 				// Return and let the elevator handler new requests as the door closes.
@@ -124,6 +138,7 @@ func HandleNewElevState(s elevator.Elevator) {
 				ElevState.Behaviour = elevator.EB_Moving
 			}
 		}
+		Lights()
 		communication.SendStateUpdate(ElevState, ElevState.Id)
 	}
 
@@ -146,6 +161,7 @@ func HandleDoorTimeOut(e bool) {
 	default:
 		break
 	}
+	Lights()
 }
 
 func HandleButtonEvent(btn elevio.ButtonEvent, doorTimeOutAlert chan bool) {
@@ -211,9 +227,10 @@ func HandleNewFloor(floor int, numFloors int) {
 	// Set new state and send it to other elevators
 	ElevState.Floor = floor
 	elevio.SetFloorIndicator(ElevState.Floor)
+	Lights()
 
 	switch ElevState.Behaviour {
-	case elevator.EB_Moving:			 // TODO hvis det fremdeles forblir kun én relevant case burde denne og de to følgende kodelinjene ryddes opp i
+	case elevator.EB_Moving: // TODO hvis det fremdeles forblir kun én relevant case burde denne og de to følgende kodelinjene ryddes opp i
 		if single_elev_requests.ShouldStop(ElevState) {
 			// Stop the elevator and open the door
 			elevio.SetMotorDirection(elevio.MD_Stop)
@@ -221,7 +238,7 @@ func HandleNewFloor(floor int, numFloors int) {
 			timer_start()
 			fmt.Println("Opening door")
 			ElevState.Behaviour = elevator.EB_DoorOpen
-			
+
 			// check which button has a running request for this floor
 			for btn := elevio.ButtonType(0); btn < config.N_BUTTONS; btn++ {
 				if ElevState.Requests[floor][btn] {
@@ -234,33 +251,47 @@ func HandleNewFloor(floor int, numFloors int) {
 					}
 					// clear request locally and notify other elevators
 					ElevState.Requests[floor][btn] = false
-					elevio.SetButtonLamp(btn, floor, false)
-				}					
+					CurrentElevStates[ElevState.Id] = ElevState
+
+					// elevio.SetButtonLamp(btn, floor, false)
+				}
 			}
 			communication.SendClearedOrder(floor, ElevState.Id)
 			communication.SendStateUpdate(ElevState, ElevState.Id)
 		}
 	}
+	Lights()
 }
 
 func HandleChangeInObstruction(obstruction bool) {
-	fmt.Println("Obstruction?", obstruction) //? Erstatter tonnevis av printf's med println's, går vel greit kodemessig?
+	fmt.Println("Obstruction?", obstruction)
 	if obstruction {
+		ObstructionTimer = time.AfterFunc(10*time.Second, RedistributeToActivePeers)
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		extend_timer_on_obstruction()
 	} else {
+		ObstructionTimer.Stop()
 		elevio.SetMotorDirection(d)
 		timer_start()
 		fmt.Println("Obstruction removed, closing door soon.")
+		ElevState.Stuck = false
+		communication.SendStateUpdate(ElevState, ElevState.Id)
 	}
 }
 
 func HandleChangeInStopBtn(d bool, numFloors int) {
-	// if stop button is pressed, print it
+	// if stop button is pressed, print it | Done
 	// then un-light all button lamps
 	// TODO: choose ourselves
-	// TODO må sette stopplyset i det minste
+	// TODO må sette stopplyset i det minste | Done
 	fmt.Println("Stop button pressed?", "%+v\n", d)
+	if d == true {
+		fmt.Println("Stop button pressed")
+		elevio.SetStopLamp(true)
+	} else {
+		elevio.SetStopLamp(false)
+		fmt.Println("Stop button released")
+	}
 	for f := 0; f < numFloors; f++ {
 		for b := elevio.ButtonType(0); b < 3; b++ { // initializes b to 0 (ButtonType is int)
 			elevio.SetButtonLamp(b, f, false)
@@ -269,11 +300,11 @@ func HandleChangeInStopBtn(d bool, numFloors int) {
 }
 
 func RemovePeer(PeerList []string, peer string) []string {
-    var UpdatedPeers []string
-    for _, oldpeer := range PeerList {
-        if oldpeer != peer {
-            UpdatedPeers = append(UpdatedPeers, oldpeer)
-        }
-    }
-    return UpdatedPeers
+	var UpdatedPeers []string
+	for _, oldpeer := range PeerList {
+		if oldpeer != peer {
+			UpdatedPeers = append(UpdatedPeers, oldpeer)
+		}
+	}
+	return UpdatedPeers
 }

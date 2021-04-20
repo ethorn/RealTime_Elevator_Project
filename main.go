@@ -57,8 +57,9 @@ func main() {
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
 
-	arg_pp := strconv.Itoa(pp)
+	//arg_pp := strconv.Itoa(pp)
 	///// MAC
+
 	currentDir, _ := os.Getwd()
 	filename := "main.go"
 	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
@@ -67,13 +68,12 @@ func main() {
 		fmt.Println(err)
 	}
 
-	////// WINDOWS
-	// arg_pp := strconv.Itoa(pp)
 
-	// funker ikke for meg - marcus
-	exec.Command("cmd", "/C", "start", "powershell", "go", "run", `"main.go --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`).Run()
-	exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
-	// err := exec.Command("cmd", "/C", "start", "powershell", "go", "run", `"pheonix.go"`).Run()
+	////// WINDOWS
+	 arg_pp := strconv.Itoa(pp)
+
+	exec.Command("cmd", "/C", "start", "powershell -NoExit", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
+	
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
 	fsm.ElevState.Id = id
@@ -233,11 +233,45 @@ func main() {
 				statesUpdateTx <- state
 			}
 
+			// Make sure orders are not distributed to other elevators in single-elev mode 
+			if len(p.Peers) == 1{
+				for _, state := range fsm.CurrentElevStates {
+					if state.Id != fsm.ElevState.Id{
+						state.Stuck = true
+						fsm.CurrentElevStates[state.Id] = state
+					}
+				}
+			} 
+
 		case <-masterRx:
 			masterCounter = 0
 
 		case h := <-hallRx:
 			if fsm.ElevState.Master {
+				// Update with masters current state
+				fsm.CurrentElevStates[fsm.ElevState.Id] = fsm.ElevState
+
+				// Update current Unservicable Peers
+				for _, state := range fsm.CurrentElevStates {
+					if state.Stuck == true {
+						fsm.UnservicablePeers = append(fsm.UnservicablePeers, state.Id)
+						for _, peers := range fsm.UnservicablePeers {
+							if state.Id == peers{
+							fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, state.Id)
+							fsm.UnservicablePeers = append(fsm.UnservicablePeers, state.Id)
+							}
+						}
+					} else {
+						fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, state.Id)
+					}
+				}
+				fmt.Println("Unservicable peers: ", fsm.UnservicablePeers)
+				
+				//Refuse new hall request in single-elev-mode
+				if len(currentPeers) == 1{
+					break
+				} 
+
 				// First check integrity with checksum
 				if communication.BtnMsgChecksumIsOk(h) {
 					// Then ccknowledge message
@@ -251,18 +285,6 @@ func main() {
 					continue
 				}
 
-				// Update CurrentElevStates with masters current state 
-				fsm.CurrentElevStates[fsm.ElevState.Id] = fsm.ElevState
-
-				// Update current Unservicable Peers
-				for _, state := range fsm.CurrentElevStates {
-					if state.Stuck == true {
-						fsm.UnservicablePeers = append(fsm.UnservicablePeers, state.Id)
-					} else {
-						fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, state.Id)
-					}
-				}
-				fmt.Println("Unservicable peers: ", fsm.UnservicablePeers)
 				// Designate order
 				index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button, fsm.UnservicablePeers)
 				designatedElev := fsm.CurrentElevStates[index]

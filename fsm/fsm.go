@@ -141,6 +141,7 @@ func HandleNewElevState(s elevator.Elevator) {
 		Lights()
 		communication.SendStateUpdate(ElevState, ElevState.Id)
 	}
+
 }
 
 // Handle functions

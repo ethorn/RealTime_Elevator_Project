@@ -8,7 +8,6 @@ import (
 	"elevator_project/elevio"
 	"elevator_project/order_logic"
 	"elevator_project/single_elev_requests"
-	"elevator_project/network/peers"
 	"fmt"
 	"time"
 )

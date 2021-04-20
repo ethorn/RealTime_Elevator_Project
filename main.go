@@ -57,20 +57,20 @@ func main() {
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
 
-	//arg_pp := strconv.Itoa(pp)
+	
 	///// MAC
-
-	currentDir, _ := os.Getwd()
-	filename := "main.go"
-	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// arg_pp := strconv.Itoa(pp)
+	// currentDir, _ := os.Getwd()
+	// filename := "main.go"
+	// cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
+	// err := cmd.Run()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
 
 
 	////// WINDOWS
-	 arg_pp := strconv.Itoa(pp)
+	arg_pp := strconv.Itoa(pp)
 
 	exec.Command("cmd", "/C", "start", "powershell -NoExit", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
 	
@@ -202,7 +202,6 @@ func main() {
 			fsm.Timer_stop()
 
 		case p := <-peerUpdateCh:
-			fsm.HandlePeerUpdate(p)
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", p.Peers)
 			currentPeers = p.Peers

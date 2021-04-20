@@ -11,11 +11,10 @@ Remaining bugs/edge cases
 [] Obstruction og andre hindringer -> oppdatere unservicable peers
 [] En begrensning ved systemet vårt er at må endre en del kode ved å øke n elevators
 [] lys som blir slått på når de ikke burde (tror jeg vet årsaken, må finne riktig sted å wipe ordre) 
-[] Heisene respekterer ikke det at døra er åpen, prioriterer hall-calls midt i en cab call 
-[] Stop og obstruct er jeg litt usikker på om gjør det de skal? Må også finne en måte å ta heisene unna nye ordre og eventuelt distribuere ordre på nytt om de står for lenge
-[] Døren er asynch med bevegelser? Timeren er dobbelt så lang som den skal være? Eller på 4 s?
-[] Ved init sendes ikke StateMessages, går vel fint?
-[] Fix lys og MD_STOP direction på stoppknappen.
+[] Done? - Heisene respekterer ikke det at døra er åpen, prioriterer hall-calls midt i en cab call 
+[] Done? - Stop og obstruct er jeg litt usikker på om gjør det de skal? Må også finne en måte å ta heisene unna nye ordre og eventuelt distribuere ordre på nytt om de står for lenge
+[] Done? - Døren er asynch med bevegelser? Timeren er dobbelt så lang som den skal være? Eller på 4 s?
+[] Done? - Ved init sendes ikke StateMessages, går vel fint? -> Sendes ved new peers nå?
 [] PACKAGE LOSS testing og error tests for øvrig
 [] Nevn med de andre at det å trykke på stoppknappen utlyser true deretter false
       "klasbo (Anders): 

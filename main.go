@@ -168,13 +168,13 @@ func main() {
 	fmt.Println("Starting as slave...")
 	masterCounter := 0
 	for {
-		// break if no master message in 6 seconds
 		if masterCounter > 300 { 
+			// Become master
 			if id == currentPeers[0] {
 				fmt.Println("\n... Becoming master\n")
 				fsm.ElevState.Master = true
 
-				//Redistribute orders if master disconnected
+				//Redistribute orders if another master disconnected
 				if len(lostPeers) > 0 {
 					for _, peers := range lostPeers {
 						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
@@ -184,8 +184,8 @@ func main() {
 			}
 			masterCounter = 0
 		}
+		
 		select {
-
 		case a := <-drv_buttons:
 			fsm.HandleButtonEvent(a, doorTimeOutAlert)
 

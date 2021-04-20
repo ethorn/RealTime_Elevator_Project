@@ -147,6 +147,6 @@ func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer
 			}
 		}
 	}
-	fmt.Print("Orders successfully redistributed")
+	fmt.Println("Orders successfully redistributed")
 	return CurrentElevStates
 }

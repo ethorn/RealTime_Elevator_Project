@@ -236,7 +236,6 @@ func HandleNewFloor(floor int, numFloors int) {
 }
 
 func HandleChangeInObstruction(obstruction bool) {
-	fmt.Println("Obstruction?", obstruction)
 	if obstruction {
 		ObstructionTimer = time.AfterFunc(10*time.Second, RedistributeToActivePeers)
 		elevio.SetMotorDirection(elevio.MD_Stop)

@@ -17,7 +17,7 @@ func Init(id string) {
 }
 
 func ReadOrdersFromBackupFile(id string) [4][3]bool {
-	genericCabList := [4][3]bool{{false, false, false}, {false, false, false}, {false, false, false}, {false, false, false}} //TODO should be replaced with configvalues imo
+	genericCabList := [4][3]bool{{false, false, false}, {false, false, false}, {false, false, false}, {false, false, false}}
 
 	buf := make([]byte, 81)
 

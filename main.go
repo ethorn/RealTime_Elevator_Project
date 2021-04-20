@@ -26,7 +26,6 @@ func main() {
 
 	var id string
 	flag.StringVar(&id, "id", "", "id of this peer")
-	flag.Parse()
 
 	var pp int
 	flag.IntVar(&pp, "pp", 2, "integer for process pair")
@@ -58,21 +57,23 @@ func main() {
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
 
-	//arg_pp := strconv.Itoa(pp)
-	/////// MAC
-	//currentDir, _ := os.Getwd()
-	//filename := currentDir + "/main.go"
-	//cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
-	//err := cmd.Run()
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
+	arg_pp := strconv.Itoa(pp)
+	///// MAC
+	currentDir, _ := os.Getwd()
+	filename := "main.go"
+	cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
+	err := cmd.Run()
+	// cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
+	// err := cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	////// WINDOWS
-	arg_pp := strconv.Itoa(pp)
+	// arg_pp := strconv.Itoa(pp)
 
 	// funker ikke for meg - marcus
-	exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
+	// exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
 
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")

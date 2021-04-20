@@ -57,9 +57,8 @@ func main() {
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
 
-	
+	arg_pp := strconv.Itoa(pp)
 	///// MAC
-	// arg_pp := strconv.Itoa(pp)
 	// currentDir, _ := os.Getwd()
 	// filename := "main.go"
 	// cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
@@ -69,7 +68,6 @@ func main() {
 	// }
 
 	////// WINDOWS
-	arg_pp := strconv.Itoa(pp)
 	exec.Command("cmd", "/C", "start", "powershell -NoExit", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
 	
 	////// UBUNTU
@@ -82,7 +80,6 @@ func main() {
 	fsm.ElevState.Id = id
 
 	////////////////////////////////////// Init driver
-	// numFloors := 4 //! Brukte heller config-en
 	fmt.Println("localhost:" + port)
 	elevio.Init("localhost:"+port, config.N_FLOORS)
 
@@ -104,7 +101,7 @@ func main() {
 
 	// make channels for ...
 	stateMsgTx := communication.StateMsgTx
-	stateMsgRx := communication.StateMsgRx // TODO: this should be a struct with all elevators states
+	stateMsgRx := communication.StateMsgRx
 	go bcast.Transmitter(46569, stateMsgTx)
 	go bcast.Receiver(46569, stateMsgRx)
 

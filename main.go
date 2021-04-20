@@ -29,7 +29,7 @@ func main() {
 	flag.Parse()
 
 	var pp int
-	flag.IntVar(&pp, "pp", 0, "integer for process pair")
+	flag.IntVar(&pp, "pp", 2, "integer for process pair")
 	flag.Parse()
 
 	////////////////////////////////////////////////////////////////////////
@@ -70,6 +70,8 @@ func main() {
 
 	////// WINDOWS
 	arg_pp := strconv.Itoa(pp)
+
+	// funker ikke for meg - marcus
 	exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "--id="+id, "--port"+port, "--pp"+arg_pp).Run()
 
 	//////////////////////////////////////// State machine initialization
@@ -211,13 +213,18 @@ func main() {
 			fmt.Printf("  New:      %q\n", p.New)
 			fmt.Printf("  Lost:     %q\n", p.Lost)
 			lostPeers = append(lostPeers, p.Lost...)
-			fsm.UnservicablePeers = append(fsm.UnservicablePeers, p.Lost...)
-			fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, p.New)
+			tempState := fsm.CurrentElevStates[p.New]
+			tempState.Stuck = false
+			fsm.CurrentElevStates[p.New] = tempState
 
 			//Handle disconnected elevator as master
 			if len(p.Lost) > 0 {
 				if fsm.ElevState.Master {
 					for _, peers := range p.Lost {
+						tempState := fsm.CurrentElevStates[peers]
+						tempState.Stuck = true
+						fsm.CurrentElevStates[peers] = tempState
+						time.Sleep(100 * time.Millisecond)
 						fsm.CurrentElevStates = order_logic.RedistributeOrders(fsm.CurrentElevStates, peers, fsm.ElevState.Id)
 						fsm.Lights()
 						lostPeers = fsm.RemovePeer(lostPeers, peers)
@@ -252,8 +259,16 @@ func main() {
 				// Update with masters current state
 				fsm.CurrentElevStates[fsm.ElevState.Id] = fsm.ElevState
 
-				// Designate order
+				// Update current Unservicable Peers
+				for _, state := range fsm.CurrentElevStates {
+					if state.Stuck == true {
+						fsm.UnservicablePeers = append(fsm.UnservicablePeers, state.Id)
+					} else {
+						fsm.UnservicablePeers = fsm.RemovePeer(fsm.UnservicablePeers, state.Id)
+					}
+				}
 				fmt.Println("Unservicable peers: ", fsm.UnservicablePeers)
+				// Designate order
 				index := order_logic.DesignateOrder(fsm.CurrentElevStates, h.Button, fsm.UnservicablePeers)
 				designatedElev := fsm.CurrentElevStates[index]
 				designatedElev.Requests[h.Button.Floor][h.Button.Button] = true

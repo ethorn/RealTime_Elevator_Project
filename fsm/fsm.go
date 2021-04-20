@@ -6,9 +6,9 @@ import (
 	"elevator_project/config"
 	"elevator_project/elevator"
 	"elevator_project/elevio"
+	"elevator_project/order_logic"
 	"elevator_project/single_elev_requests"
 	"fmt"
-	"os"
 	"time"
 )
 
@@ -23,7 +23,7 @@ var UnservicablePeers []string
 var ObstructionTimer *time.Timer
 
 func InitElevator(id string) {
-	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle, Requests: cabBackup.ReadOrdersFromBackupFile(id)}
+	ElevState = elevator.Elevator{Id: id, Master: false, Floor: elevio.GetFloor(), Dir: elevio.MD_Stop, Behaviour: elevator.EB_Idle, Requests: cabBackup.ReadOrdersFromBackupFile(id), Stuck: false}
 	//? spør Eric hva denne er nyttig for
 	//communication.SendStateUpdate(ElevState, ElevState.Id) //OBS avviker litt fra min implementasjon
 }
@@ -72,9 +72,14 @@ func UpdateLights(s elevator.Elevator) {
 	}
 }
 
-func CloseActivePeer() {
+func RedistributeToActivePeers() {
 	fmt.Println("Elevator has been stuck for too long, redistributing")
-	os.Exit(3)
+	ElevState.Stuck = true
+	communication.SendStateUpdate(ElevState, ElevState.Id)
+	time.Sleep(100 * time.Millisecond)
+	CurrentElevStates = order_logic.RedistributeOrders(CurrentElevStates, ElevState.Id, ElevState.Id)
+	ElevState = CurrentElevStates[ElevState.Id]
+	communication.SendStateUpdate(ElevState, ElevState.Id)
 }
 
 func HandleAcknowledgeMsg(ackRx chan communication.AckMessage) {
@@ -259,9 +264,8 @@ func HandleNewFloor(floor int, numFloors int) {
 
 func HandleChangeInObstruction(obstruction bool) {
 	fmt.Println("Obstruction?", obstruction)
-
 	if obstruction {
-		ObstructionTimer = time.AfterFunc(10*time.Second, CloseActivePeer)
+		ObstructionTimer = time.AfterFunc(10*time.Second, RedistributeToActivePeers)
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		extend_timer_on_obstruction()
 	} else {
@@ -269,15 +273,24 @@ func HandleChangeInObstruction(obstruction bool) {
 		elevio.SetMotorDirection(d)
 		timer_start()
 		fmt.Println("Obstruction removed, closing door soon.")
+		ElevState.Stuck = false
+		communication.SendStateUpdate(ElevState, ElevState.Id)
 	}
 }
 
 func HandleChangeInStopBtn(d bool, numFloors int) {
-	// if stop button is pressed, print it
+	// if stop button is pressed, print it | Done
 	// then un-light all button lamps
 	// TODO: choose ourselves
-	// TODO må sette stopplyset i det minste
+	// TODO må sette stopplyset i det minste | Done
 	fmt.Println("Stop button pressed?", "%+v\n", d)
+	if d == true {
+		fmt.Println("Stop button pressed")
+		elevio.SetStopLamp(true)
+	} else {
+		elevio.SetStopLamp(false)
+		fmt.Println("Stop button released")
+	}
 	for f := 0; f < numFloors; f++ {
 		for b := elevio.ButtonType(0); b < 3; b++ { // initializes b to 0 (ButtonType is int)
 			elevio.SetButtonLamp(b, f, false)

@@ -133,55 +133,27 @@ func DesignateOrder(CurrentElevStates map[string]elevator.Elevator, order elevio
 	return elevatorcostid[index] //Check this
 }
 
-//Marcus' gamle
-// func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string, senderId string) map[string]elevator.Elevator {
-// 	for id, elev := range CurrentElevStates {
-// 		if lostpeer == elev.Id {
-// 			for j := 0; j < 4; j++ {
-// 				if elev.Requests[j][0] {
-// 					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallUp}
-// 					communication.SendNewHallRequest(tempbtn, senderId)
-// 					designatedElev := CurrentElevStates[id]
-// 					designatedElev.Requests[j][0] = true
-// 					CurrentElevStates[id] = designatedElev
-
-// 				}
-// 				if elev.Requests[j][1] {
-// 					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
-// 					communication.SendNewHallRequest(tempbtn, senderId)
-// 					designatedElev := CurrentElevStates[id]
-// 					designatedElev.Requests[j][0] = true
-// 					CurrentElevStates[id] = designatedElev
-// 				}
-// 			}
-// 		}
-// 	}
-// 	fmt.Print("Orders successfully redistributed \n")
-// 	return CurrentElevStates
-// }
-
-//Marcus' nye
 func RedistributeOrders(CurrentElevStates map[string]elevator.Elevator, lostpeer string, senderId string) map[string]elevator.Elevator {
-    for id, elev := range CurrentElevStates {
-        if lostpeer == elev.Id {
-            for j := 0; j < config.N_FLOORS; j++ {
-                if elev.Requests[j][0] {
-                    tempbtn := elevio.ButtonEvent{j, elevio.BT_HallUp}
-                    communication.SendNewHallRequest(tempbtn, senderId)
-                    removedElev := CurrentElevStates[id]
-                    removedElev.Requests[j][0] = false
-                    CurrentElevStates[id] = removedElev
-                }
-                if elev.Requests[j][1] {
-                    tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
-                    communication.SendNewHallRequest(tempbtn, senderId)
-                    removedElev := CurrentElevStates[id]
-                    removedElev.Requests[j][1] = false
-                    CurrentElevStates[id] = removedElev
-                }
-            }
-        }
-    }
-    fmt.Print("Orders successfully redistributed \n")
-    return CurrentElevStates
+	for id, elev := range CurrentElevStates {
+		if lostpeer == elev.Id {
+			for j := 0; j < config.N_FLOORS; j++ {
+				if elev.Requests[j][0] {
+					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallUp}
+					communication.SendNewHallRequest(tempbtn, senderId)
+					removedElev := CurrentElevStates[id]
+					removedElev.Requests[j][0] = false
+					CurrentElevStates[id] = removedElev
+				}
+				if elev.Requests[j][1] {
+					tempbtn := elevio.ButtonEvent{j, elevio.BT_HallDown} //? "elevator_project/elevio.ButtonEvent composite literal uses unkeyed fields"?
+					communication.SendNewHallRequest(tempbtn, senderId)
+					removedElev := CurrentElevStates[id]
+					removedElev.Requests[j][1] = false
+					CurrentElevStates[id] = removedElev
+				}
+			}
+		}
+	}
+	fmt.Print("Orders successfully redistributed")
+	return CurrentElevStates
 }

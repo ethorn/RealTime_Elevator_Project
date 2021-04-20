@@ -68,12 +68,15 @@ func main() {
 	// 	fmt.Println(err)
 	// }
 
-
 	////// WINDOWS
 	arg_pp := strconv.Itoa(pp)
-
 	exec.Command("cmd", "/C", "start", "powershell -NoExit", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
 	
+	////// UBUNTU
+	// gnome-terminal -x sleep 10m --version
+	// arg_pp := strconv.Itoa(pp)
+	// exec.Command("gnome-terminal", "-x", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
+
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
 	fsm.ElevState.Id = id

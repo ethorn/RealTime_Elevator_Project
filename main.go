@@ -10,11 +10,10 @@ import (
 	"elevator_project/network/localip"
 	"elevator_project/network/peers"
 	"elevator_project/order_logic"
+	"elevator_project/process_pair"
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
 	"time"
 )
 
@@ -56,24 +55,8 @@ func main() {
 	}
 	// Become primary, start a backup, and initialize the elevator
 	fmt.Println("\nProcesspair: Becoming primary and starting a backup")
-
-	arg_pp := strconv.Itoa(pp)
-	///// MAC
-	// currentDir, _ := os.Getwd()
-	// filename := "main.go"
-	// cmd := exec.Command("osascript", "-e", `tell app "Terminal" to do script "cd `+currentDir+`; go run `+filename+` --id=`+id+` --port=`+port+` --pp=`+arg_pp+`"`)
-	// err := cmd.Run()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	////// WINDOWS
-	exec.Command("cmd", "/C", "start", "powershell -NoExit", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
 	
-	////// UBUNTU
-	// gnome-terminal -x sleep 10m --version
-	// arg_pp := strconv.Itoa(pp)
-	// exec.Command("gnome-terminal", "-x", "go", "run", "main.go", "--id",id, "--port", port, "--pp", arg_pp).Run()
+	process_pair.StartBackup(id, port, pp)
 
 	//////////////////////////////////////// State machine initialization
 	fmt.Println("Starting...")
